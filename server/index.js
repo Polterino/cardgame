@@ -16,7 +16,7 @@ const io = new Server(server, {
 });
 
 
-const TIMEOUT_TIME = 10 // in seconds
+const TIMEOUT_TIME = 60 // in seconds
 
 const rooms = {}; // roomId -> { players: [{id, name}], turnIndex, playedCards, deck, hands }
 const disconnectTimeouts = {};  // chiave: name o socket.id
@@ -111,13 +111,14 @@ io.on('connection', socket => {
 		existing.id = socket.id;
 		console.log("Rejoin: socket updated ", name);
 	}
-
 	if (disconnectTimeouts[name])
 	{
 		clearTimeout(disconnectTimeouts[name]);
 		delete disconnectTimeouts[name];
 		console.log("Timeout deleted for ", name);
 	}
+
+	socket.join(roomId);
 
 	// Update player
 	io.to(socket.id).emit('roomJoined', {
@@ -148,25 +149,26 @@ io.on('connection', socket => {
 	const playerIndex = room.players.findIndex(p => p.id === socket.id);
 	const currentPlayer = room.players[room.turnIndex];
 
-	if (socket.id !== currentPlayer.id) return; // Non è il suo turno
+	if (socket.id !== currentPlayer.id) return; // Not his turn
 
-	// Rimuovi la carta dalla mano del giocatore
+	// Remove card from player
 	const hand = room.hands[socket.id];
 	const cardIndex = hand.indexOf(card);
 	if (cardIndex === -1) return;
 	hand.splice(cardIndex, 1);
 
 	room.playedCards.push({ playerId: socket.id, name: socket.data.name, card });
-	io.to(roomId).emit('cardPlayed', { playerId: socket.id, card, name: socket.data.name });
+	io.to(roomId).emit('cardPlayed', { playerId: socket.id, name: socket.data.name, card});
 
-	// Passa al giocatore successivo
+	// Change current player
 	room.turnIndex = (room.turnIndex + 1) % room.players.length;
 	const nextPlayer = room.players[room.turnIndex];
 	io.to(roomId).emit('turnChanged', nextPlayer.id);
 
-	// Se la mano di tutti è vuota, pesca nuove carte (se il mazzo non è vuoto)
+	// If everyone has no cards, draw again from the deck
 	const everyoneOutOfCards = room.players.every(p => room.hands[p.id].length === 0);
-	if (everyoneOutOfCards && room.deck.length > 0) {
+	if (everyoneOutOfCards && room.deck.length > 0)
+	{
 	  room.players.forEach(p => {
 		const newCards = room.deck.splice(0, 3);
 		room.hands[p.id].push(...newCards);
@@ -175,36 +177,52 @@ io.on('connection', socket => {
 	}
   });
 
-  socket.on('disconnect', () => {
-	for (const [roomId, room] of Object.entries(rooms))
-	{
-		const player = room.players.find(p => p.id === socket.id);
-		if (!player) continue;
+	socket.on('disconnect', () => {
+		removePlayerDelay(socket, TIMEOUT_TIME*1000);
+	});
 
-		const playerName = player.name;
+	socket.on('leaveRoom', () => {
+		removePlayerDelay(socket);
+	});
 
-		// Timeout before removing player
-		const timeout = setTimeout(() => {
-			room.players = room.players.filter(p => p.id !== socket.id);
-			delete room.hands[playerName];
-			console.log(playerName, " removed from room ", roomId);
+	function removePlayerDelay(socket, delay = 0)
+	{ 
+		for (const [roomId, room] of Object.entries(rooms))
+		{
+			const player = room.players.find(p => p.id === socket.id);
+			if (!player) continue;
 
-			if (room.players.length === 0)
+			const playerName = player.name;
+
+			const removePlayer = () => {
+				room.players = room.players.filter(p => p.id !== socket.id);
+				delete room.hands[playerName];
+				console.log(playerName, " removed from room ", roomId);
+
+				if (room.players.length === 0)
+				{
+					delete rooms[roomId];
+					console.log("Room ", roomId, " deleted");
+				} else
+				{
+					io.to(roomId).emit('playerJoined', { players: rooms[roomId].players });
+				}
+
+				delete disconnectTimeouts[playerName];
+			};
+
+			if (delay > 0)
 			{
-				delete rooms[roomId];
-				console.log("Room ", roomId, " deleted");
-			} else
-			{
-				io.to(roomId).emit('playerJoined', { players: rooms[roomId].players });
+				const timeout = setTimeout(removePlayer, delay);
+				disconnectTimeouts[playerName] = timeout;
+				console.log(`${playerName} disconnected, deleting in ${TIMEOUT_TIME} seconds`);
 			}
-
-			delete disconnectTimeouts[playerName];
-		}, TIMEOUT_TIME*1000);
-
-		disconnectTimeouts[playerName] = timeout;
-		console.log(`${playerName} disconnected, deleting in ${TIMEOUT_TIME} seconds`);
+			else
+			{
+				removePlayer();
+			}
+		}
 	}
-  });
 });
 
 server.listen(3001, () => console.log('Server listening on port 3001'));

@@ -62,7 +62,7 @@ function App()
 		  setCurrentTurnIndex(currentTurnIndex);
 		});
 
-		socket.on('cardsDealt', (newHand) => {
+		socket.on('newCards', (newHand) => {
 		  setHand(newHand);
 		  setPlayedCards([]);
 		});
@@ -92,28 +92,41 @@ function App()
 
   const playCard = (card) => {
 	if (!isMyTurn) return;
-	socket.emit('playCard', card);
+	socket.emit('playCard', {roomId: roomId, card: card});
 	setHand(hand.filter(c => c !== card));
   };
 
   if (!inRoom) {
 	return (
 	  <div>
-		<h2>Gioco di carte</h2>
-		<input placeholder="Nome" value={name} onChange={e => setName(e.target.value)} />
+		<h2>Polterino's special card game</h2>
+		<input placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
 		<br />
-		<input placeholder="ID Stanza" onChange={e => setRoomId(e.target.value)} />
+		<input placeholder="Room ID" onChange={e => setRoomId(e.target.value)} />
 		<br />
-		<button onClick={handleJoin}>Entra nella stanza</button>
-		<button onClick={handleCreate}>Crea stanza</button>
+		<button onClick={handleJoin}>Join room</button>
+		<button onClick={handleCreate}>Create room</button>
 	  </div>
 	);
   }
 
   return (
-	<div>
+  	<div>
+  		<button onClick={() => {
+  			socket.emit('leaveRoom', {name: name, roomId: roomId});
+			localStorage.removeItem('roomId');
+			setInRoom(false);
+			setPlayers([]);
+			setHand([]);
+			setPlayedCards([]);
+			setCurrentTurnIndex(0);
+			setIsMyTurn(false);
+			setRoomId('');
+			}}>
+			Leave room
+		</button>
 		<h3>Room ID: {roomId}</h3>
-		<h3>Giocatori nella stanza:</h3>
+		<h3>Players:</h3>
 	  <ul>
 		{players.map((p, i) => (
 		  <li key={i} style={{ fontWeight: currentTurnIndex === i ? 'bold' : 'normal' }}>
@@ -121,13 +134,13 @@ function App()
 		  </li>
 		))}
 	  </ul>
-	  <h4>Carte giocate:</h4>
+	  <h4>Playerd cards:</h4>
 	  <ul>
 		{playedCards.map((play, i) => (
-		  <li key={i}>{play.name} ha giocato {play.card}</li>
+		  <li key={i}>{play.name} played {play.card}</li>
 		))}
 	  </ul>
-	  <h4>Le tue carte:</h4>
+	  <h4>Your hand:</h4>
 	  <div>
 		{hand.map((card, i) => (
 		  <button key={i} onClick={() => playCard(card)} disabled={!isMyTurn}>
@@ -135,7 +148,7 @@ function App()
 		  </button>
 		))}
 	  </div>
-	  {!isMyTurn && <p>In attesa del tuo turno...</p>}
+	  {!isMyTurn && <p>Waiting for your turn...</p>}
 	</div>
   );
 }
