@@ -102,7 +102,7 @@ function App()
 		<h2>Gioco di carte</h2>
 		<input placeholder="Nome" value={name} onChange={e => setName(e.target.value)} />
 		<br />
-		<input placeholder="ID Stanza" value={roomId} onChange={e => setRoomId(e.target.value)} />
+		<input placeholder="ID Stanza" onChange={e => setRoomId(e.target.value)} />
 		<br />
 		<button onClick={handleJoin}>Entra nella stanza</button>
 		<button onClick={handleCreate}>Crea stanza</button>
