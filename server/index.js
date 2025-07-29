@@ -60,7 +60,7 @@ io.on('connection', socket => {
 
 	rooms[roomId] = {
 	  players: [{ id: socket.id, name: socket.data.name }],
-	  turnIndex: 0,
+	  currentTurnSocket: socket.id,
 	  playedCards: [],
 	  deck: deck,
 	  hands: {
@@ -75,7 +75,7 @@ io.on('connection', socket => {
 	  room: roomId,
 	  players: rooms[roomId].players,
 	  hand: hand,
-	  currentTurnIndex: 0
+	  currentTurnSocket: socket.id
 	});
 
 	console.log("Room created ", roomId);
@@ -91,7 +91,7 @@ io.on('connection', socket => {
 		room: roomId,
 		players: rooms[roomId].players,
 		hand: rooms[roomId].hands[socket.id],
-		currentTurnIndex: 0
+		currentTurnSocket: rooms[roomId].currentTurnSocket
 	  });
 	  io.to(roomId).emit('playerJoined', {players: rooms[roomId].players});
 	}
@@ -125,7 +125,7 @@ io.on('connection', socket => {
 		room: roomId,
 		players: room.players,
 		hand: room.hands[name] || [],
-		currentTurnIndex: room.currentTurnIndex
+		currentTurnSocket: rooms[roomId].currentTurnSocket
 	});
 
 	// Update all players
@@ -143,39 +143,42 @@ io.on('connection', socket => {
 	}
   });
 
-  socket.on('playCard', ({ roomId, card }) => {
-	const room = rooms[roomId];
-	if (!room) return;
-	const playerIndex = room.players.findIndex(p => p.id === socket.id);
-	const currentPlayer = room.players[room.turnIndex];
+	socket.on('playCard', ({ roomId, card }) => {
+		const room = rooms[roomId];
+		if (!room) return;
+		const currentPlayerId = room.currentTurnSocket;
 
-	if (socket.id !== currentPlayer.id) return; // Not his turn
+		if (socket.id !== currentPlayerId) return; // Not his turn
 
-	// Remove card from player
-	const hand = room.hands[socket.id];
-	const cardIndex = hand.indexOf(card);
-	if (cardIndex === -1) return;
-	hand.splice(cardIndex, 1);
+		// Remove card from player
+		const hand = room.hands[socket.id];
+		const cardIndex = hand.indexOf(card);
+		if (cardIndex === -1) return;
+		hand.splice(cardIndex, 1);
 
-	room.playedCards.push({ playerId: socket.id, name: socket.data.name, card });
-	io.to(roomId).emit('cardPlayed', { playerId: socket.id, name: socket.data.name, card});
+		room.playedCards.push({ playerId: socket.id, name: socket.data.name, card });
+		io.to(roomId).emit('cardPlayed', { playerId: socket.id, name: socket.data.name, card});
 
-	// Change current player
-	room.turnIndex = (room.turnIndex + 1) % room.players.length;
-	const nextPlayer = room.players[room.turnIndex];
-	io.to(roomId).emit('turnChanged', nextPlayer.id);
+		// Change current player
+		const currentIndex = room.players.findIndex(p => p.id === room.currentTurnSocket);
+		const nextIndex = (currentIndex + 1) % room.players.length;
+		const nextPlayer = room.players[nextIndex];
+		room.currentTurnSocket = nextPlayer.id;
 
-	// If everyone has no cards, draw again from the deck
-	const everyoneOutOfCards = room.players.every(p => room.hands[p.id].length === 0);
-	if (everyoneOutOfCards && room.deck.length > 0)
-	{
-	  room.players.forEach(p => {
-		const newCards = room.deck.splice(0, 3);
-		room.hands[p.id].push(...newCards);
-		io.to(p.id).emit('newCards', room.hands[p.id]);
-	  });
-	}
-  });
+		io.to(roomId).emit('turnChanged', { currentTurnSocket: nextPlayer.id });
+		console.log("Turn of", nextPlayer.id);
+
+		// If everyone has no cards, draw again from the deck
+		const everyoneOutOfCards = room.players.every(p => room.hands[p.id].length === 0);
+		if (everyoneOutOfCards && room.deck.length > 0)
+		{
+			room.players.forEach(p => {
+				const newCards = room.deck.splice(0, 3);
+				room.hands[p.id].push(...newCards);
+				io.to(p.id).emit('newCards', room.hands[p.id]);
+			});
+		}
+	});
 
 	socket.on('disconnect', () => {
 		removePlayerDelay(socket, TIMEOUT_TIME*1000);

@@ -38,19 +38,19 @@ function App()
 			}
 		});
 
-		socket.on('roomJoined', ({ room, players, hand, currentTurnIndex }) => {
+		socket.on('roomJoined', ({ room, players, hand, currentTurnSocket }) => {
 			console.log(players);
 			setRoomId(room);
 			setInRoom(true);
 			setPlayers(players);
 			setHand(hand);
-			setCurrentTurnIndex(currentTurnIndex);
+			setIsMyTurn(currentTurnSocket === socket.id);
 			localStorage.setItem('roomId', room);
 			console.log("Room joined ", room);
 		});
 
 		socket.on('playerJoined', ({ players }) => {
-			console.log(players);
+			console.log("Players updated ",players);
 			setPlayers(players);
 		});
 
@@ -58,8 +58,9 @@ function App()
 		  setPlayedCards(prev => [...prev, { name, card }]);
 		});
 
-		socket.on('turnChanged', ({ currentTurnIndex }) => {
-		  setCurrentTurnIndex(currentTurnIndex);
+		socket.on('turnChanged', ({ currentTurnSocket }) => {
+			console.log("turn: ",currentTurnSocket, " my id ", socket.id);
+			setIsMyTurn(currentTurnSocket === socket.id);
 		});
 
 		socket.on('newCards', (newHand) => {
@@ -69,15 +70,19 @@ function App()
 
 		return () => {
 			socket.off('roomJoined');
+			socket.off('playerJoined');
 			socket.off('connect');
+			socket.off('cardPlayed');
+			socket.off('turnChanged');
+			socket.off('newCards');
 		};
 	}, []);
-
+/*
   useEffect(() => {
 	const myIndex = players.findIndex(p => p.name === name);
 	setIsMyTurn(myIndex === currentTurnIndex);
   }, [currentTurnIndex, players, name]);
-
+*/
   const handleJoin = () => {
 	socket.emit('setName', name);
 	socket.emit('joinRoom', roomId);
