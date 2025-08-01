@@ -19,6 +19,7 @@ function App()
 	const [playedCards, setPlayedCards] = useState([]);
 	const [currentTurnIndex, setCurrentTurnIndex] = useState(0);
 	const [isMyTurn, setIsMyTurn] = useState(false);
+	const [playerPoints, setPlayerPoints] = useState({});
 
 	useEffect(() => {
 		const savedName = localStorage.getItem('username');
@@ -31,27 +32,30 @@ function App()
 		socket.on('connect', () => {
 			const savedName = localStorage.getItem('username');
 			const savedRoomId = localStorage.getItem('roomId');
-			console.log("found", savedRoomId, savedName);
+			console.log("found saved room ", savedRoomId," and saved name ", savedName);
 			if (savedName && savedRoomId) {
 			  socket.emit('rejoinRoom', { name: savedName, roomId: savedRoomId });
 			  console.log("Trying to rejoin");
 			}
 		});
 
-		socket.on('roomJoined', ({ room, players, hand, currentTurnSocket }) => {
-			console.log(players);
+		socket.on('roomJoined', ({ room, players, hand, currentTurnSocket, playedCards, points }) => {
+			console.log("Joined room");
 			setRoomId(room);
 			setInRoom(true);
 			setPlayers(players);
 			setHand(hand);
 			setIsMyTurn(currentTurnSocket === socket.id);
+			setPlayerPoints(points);
+			setPlayedCards(playedCards);
 			localStorage.setItem('roomId', room);
 			console.log("Room joined ", room);
 		});
 
-		socket.on('playerJoined', ({ players }) => {
+		socket.on('playerJoined', ({ players, points }) => {
 			console.log("Players updated ",players);
 			setPlayers(players);
+			setPlayerPoints(points);
 		});
 
 		socket.on('cardPlayed', ({ name, card }) => {
@@ -68,6 +72,13 @@ function App()
 		  setPlayedCards([]);
 		});
 
+		socket.on('handWon', ({ winner, points }) => {
+			console.log(`Hand won by ${winner}`);
+			console.log("Updated points:", points);
+			setPlayedCards([]);
+			setPlayerPoints(points);
+		});
+
 		return () => {
 			socket.off('roomJoined');
 			socket.off('playerJoined');
@@ -75,14 +86,17 @@ function App()
 			socket.off('cardPlayed');
 			socket.off('turnChanged');
 			socket.off('newCards');
+			socket.off('handWon');
 		};
 	}, []);
+
 /*
   useEffect(() => {
 	const myIndex = players.findIndex(p => p.name === name);
 	setIsMyTurn(myIndex === currentTurnIndex);
   }, [currentTurnIndex, players, name]);
 */
+
   const handleJoin = () => {
 	socket.emit('setName', name);
 	socket.emit('joinRoom', roomId);
@@ -127,6 +141,7 @@ function App()
 			setCurrentTurnIndex(0);
 			setIsMyTurn(false);
 			setRoomId('');
+			setPlayerPoints({});
 			}}>
 			Leave room
 		</button>
@@ -135,7 +150,7 @@ function App()
 	  <ul>
 		{players.map((p, i) => (
 		  <li key={i} style={{ fontWeight: currentTurnIndex === i ? 'bold' : 'normal' }}>
-			{p.name} {name === p.name ? '(You)' : ''}
+			{p.name} {name === p.name ? '(You)' : ''} — {playerPoints[p.id] || 0} pts
 		  </li>
 		))}
 	  </ul>
