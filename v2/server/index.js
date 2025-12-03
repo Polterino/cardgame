@@ -20,6 +20,9 @@ const io = new Server(server, {
 const SUITS = ['Bastoni', 'Spade', 'Coppe', 'Denari']; // 0, 1, 2, 3 (Denari is highest)
 const VALUES = ['Asso', '2', '3', '4', '5', '6', '7', 'Fante', 'Cavallo', 'Re'];
 
+const NEXT_HAND_TIMEOUT = 5000; // milliseconds
+const NEXT_ROUND_TIMEOUT = 10000; // consider that players have already waited NEXT_HAND_TIMEOUT seconds
+
 const getCardRank = (value) => VALUES.indexOf(value);
 const getSuitRank = (suit) => SUITS.indexOf(suit);
 
@@ -217,11 +220,27 @@ io.on('connection', (socket) => {
 	    if (playerIndex !== room.currentTurn) return;
 
 		// Remove card from hand
-		const cardIndex = player.hand.findIndex(c => c.suit === card.suit && c.value === card.value);
+		const cardIndex = player.hand.findIndex(c => c.id === card.id);
 		if (cardIndex === -1) return;
+		const realCard = player.hand[cardIndex];
 		player.hand.splice(cardIndex, 1);
 
-		room.currentRoundCards.push({ playerId: player.persistentId, card, mode });
+		// Server automatically assign right value to Ace of denars to let the player who played it win
+		let actualMode = mode;
+		if (room.cardsPerHand === 1 && realCard.suit === 'Denari' && realCard.value === 'Asso')
+		{
+            const playerBid = room.bids[player.persistentId];
+            
+            if (playerBid === 1) {
+                actualMode = 'high';
+            }
+            else {
+                actualMode = 'low';
+            }
+        }
+
+
+		room.currentRoundCards.push({ playerId: player.persistentId, card: realCard, mode: actualMode });
 
 		// Check if everyone played
 		const activePlayers = room.players.filter(p => !p.isSpectator);
@@ -334,22 +353,24 @@ function resolveTrick(room) {
 	
 	// Notification
 	room.notification = `${winner.username} takes the trick!`;
-	
-	// Wait a moment then clear table
-	// In a real app, use setTimeout. Here we update immediately but FE can delay animation.
-	
-	// Check if round (5 cards etc) is over
-	const activePlayers = room.players.filter(p => !p.isSpectator);
-	const cardsLeft = activePlayers[0].hand.length;
+	broadcastUpdate(room);
 
-	if (cardsLeft === 0) {
-		calculateScores(room);
-	} else {
-		room.currentRoundCards = [];
-		// Winner starts next trick
-		room.currentTurn = room.players.findIndex(p => p.persistentId === winnerPersistentId);
-		broadcastUpdate(room);
-	}
+	setTimeout(() => {
+		if (!rooms[room.code]) return;
+		// Check if round (5 cards etc) is over
+		const activePlayers = room.players.filter(p => !p.isSpectator);
+		const cardsLeft = activePlayers[0].hand.length;
+
+		if (cardsLeft === 0) {
+			calculateScores(room);
+		} else {
+			room.currentRoundCards = [];
+			// Winner starts next trick
+			room.currentTurn = room.players.findIndex(p => p.persistentId === winnerPersistentId);
+			room.notification = `Next turn: ${room.players[room.currentTurn].username}`;
+			broadcastUpdate(room);
+		}
+	}, NEXT_HAND_TIMEOUT);
 }
 
 function isBetterCard(challenger, defender) {
@@ -363,7 +384,7 @@ function isBetterCard(challenger, defender) {
 
 	if (isC_AceDenari) {
 		if (challenger.mode === 'low') return false; // Low mode loses to everything
-		return true; // High mode beats everything (even another high ace? Assuming unique deck, only one exists)
+		return true; // High mode beats everything
 	}
 	if (isD_AceDenari) {
 		if (defender.mode === 'low') return true; // Defender is low, so challenger wins
@@ -385,6 +406,8 @@ function isBetterCard(challenger, defender) {
 }
 
 function calculateScores(room) {
+	const roundSummary = [];
+
 	room.players.forEach(p => {
 		if (p.isSpectator) return;
 		const bid = room.bids[p.persistentId];
@@ -395,6 +418,12 @@ function calculateScores(room) {
 		}
 		const tricks = p.tricks;
 		const diff = Math.abs(bid - tricks);
+
+		roundSummary.push({
+            persistentId: p.persistentId,
+            livesLost: diff
+        });
+
 		p.lives -= diff;
 		
 		if (p.lives <= 0) {
@@ -402,31 +431,35 @@ function calculateScores(room) {
 		}
 	});
 
-	// Check Game Over or Next Level
-	const survivors = room.players.filter(p => !p.isSpectator);
-	
-	if (survivors.length <= 2 && room.players.length >= 2) {
-		// Game Over
-		room.phase = 'GAME_OVER';
-		broadcastUpdate(room);
-		return;
-	}
+	// 1. send result to clients
+	io.to(room.code).emit('roundSummary', roundSummary);
+    room.notification = "Round ended. Checking lives...";
+    broadcastUpdate(room);
 
-	// Prepare next round (decrease cards)
-	room.cardsPerHand -= 1;
-	
-	if (room.cardsPerHand === 0) {
-		// Played 5 rounds (5,4,3,2,1)
-		// Check if we restart loop or end game? Prompt says: "finché tutti i giocatori restano senza carte... 5 carte iniziali... 1 carta iniziale".
-		// "La partita finisce dopo che ... sono stati giocati 5 round pieni".
-		// This implies game ends after the 1-card round.
-		room.phase = 'GAME_OVER';
-	} else {
-		// Rotate dealer
-		room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
-		startRound(room);
-	}
-	broadcastUpdate(room);
+    // 2. wait and then show animation
+    setTimeout(() => {
+        if (!rooms[room.code]) return;
+		const survivors = room.players.filter(p => !p.isSpectator);
+		
+		if (survivors.length <= 2 && room.players.length >= 2) {
+			// Game Over
+			room.phase = 'GAME_OVER';
+			broadcastUpdate(room);
+			return;
+		}
+
+		// Prepare next round (decrease cards)
+		room.cardsPerHand -= 1;
+		
+		if (room.cardsPerHand === 0) {
+			room.phase = 'GAME_OVER';
+		} else {
+			// Rotate dealer
+			room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
+			startRound(room);
+		}
+		broadcastUpdate(room);
+	}, NEXT_ROUND_TIMEOUT);
 }
 
 function broadcastUpdate(room) {
@@ -436,4 +469,6 @@ function broadcastUpdate(room) {
 }
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server listening on port ${PORT}`);
+});

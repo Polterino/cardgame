@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import html2canvas from 'html2canvas';
 
-// Change URL if hosting remotely
-const socket = io('http://192.168.69.19:3001');
+const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+const socket = io(socketUrl);
 
 function App() {
   const [connected, setConnected] = useState(false);
@@ -13,11 +13,13 @@ function App() {
   const [livesInput, setLivesInput] = useState(3);
   const [aceModeModal, setAceModeModal] = useState(null); // { card }
   const [selectedCardId, setSelectedCardId] = useState(null); // pre select cards
+  const [roundSummary, setRoundSummary] = useState(null);
 
   const CARD_PATH = "/napoletane/";
   const RETRO_CARD = "retro.jpg";
   const RETRO_PATH = CARD_PATH + RETRO_CARD;
   const STORAGE_ITEM_NAME = "game_session";
+  const STORAGE_USERNAME_KEY = "game_username";
 
   const getCardAsset = (suit, value) => {
 	  if (!suit || !value) return RETRO_PATH;
@@ -29,6 +31,11 @@ function App() {
 	const params = new URLSearchParams(window.location.search);
 	const code = params.get('code');
 	if (code) setRoomCodeInput(code);
+
+	const savedUsername = localStorage.getItem(STORAGE_USERNAME_KEY);
+    if (savedUsername) {
+        setUsername(savedUsername);
+    }
 	
 	socket.on('connect', () => {
 		setConnected(true);
@@ -56,6 +63,11 @@ function App() {
         alert('Session expired or room closed.');
     });
 
+    socket.on('roundSummary', (summary) => {
+	    setRoundSummary(summary);
+	    setTimeout(() => setRoundSummary(null), 9700);
+	});
+
 	socket.on('error', (msg) => alert(msg));
 
 	return () => socket.off();
@@ -65,11 +77,13 @@ function App() {
 
   const createRoom = () => {
 	if (!username) return alert('Enter username');
+	localStorage.setItem(STORAGE_USERNAME_KEY, username);
 	socket.emit('createRoom', { username, initialLives: livesInput });
   };
 
   const joinRoom = () => {
 	if (!username || !roomCodeInput) return alert('Enter username and room code');
+	localStorage.setItem(STORAGE_USERNAME_KEY, username);
 	socket.emit('joinRoom', { roomCode: roomCodeInput.toUpperCase(), username });
   };
 
@@ -221,7 +235,13 @@ function App() {
 		{/* Other Players (Top/Sides - Simplified as a row for mobile) */}
 		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:gap-12 md:justify-around md:items-start">
 		  {gameState.players.filter(p => p.id !== socket.id).map(p => (
-			<div key={p.id} className={`flex flex-col items-center p-2 rounded ${gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400' : 'bg-green-900/50'}`}>
+			<div key={p.id} className={`flex flex-col items-center p-2 rounded relative ${gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400' : 'bg-green-900/50'}`}>
+				{/* LIVES BADGE */}
+			    {roundSummary?.find(s => s.persistentId === p.persistentId) && (
+			        <div className={`absolute -top-4 -right-2 z-50 px-2 py-1 text-xs rounded-full font-bold shadow-lg animate-bounce ${roundSummary.find(s => s.persistentId === p.persistentId).livesLost === 0 ? 'bg-green-500' : 'bg-red-600'}`}>
+			            {roundSummary.find(s => s.persistentId === p.persistentId).livesLost === 0 ? 'SAFE' : `-${roundSummary.find(s => s.persistentId === p.persistentId).livesLost}`}
+			        </div>
+			    )}
 			  <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center mb-1">
 				{p.username[0].toUpperCase()}
 			  </div>
@@ -254,20 +274,61 @@ function App() {
 		</div>
 
 		{/* Center: Played Cards */}
-		<div className="h-48 w-full flex items-center justify-center mb-8 md:h-96 md:mb-0">
-          <div className="relative w-64 h-48 bg-green-700/30 rounded-full border-4 border-green-900/50 flex items-center justify-center md:w-[600px] md:h-[400px]">
-			{gameState.currentRoundCards.map((play, idx) => (
-			  <img 
-				    src={getCardAsset(play.card.suit, play.card.value)}
-				    alt={`${play.card.value} ${play.card.suit}`}
-				    className="absolute w-24 h-auto shadow-xl rounded-lg transform transition-all md:w-44"
-                    style={{
-                        transform: `rotate(${idx * 20 - (gameState.currentRoundCards.length * 10)}deg) translateY(${idx%2===0 ? -5 : 5}px) scale(1.0)`,
-                        zIndex: idx
-                    }}
-			   />
-			))}
-		  </div>
+		<div className="h-48 w-full flex items-center justify-center mb-8 md:h-96 md:mb-0 relative">
+          <div className="absolute w-64 h-48 bg-green-700/30 rounded-full border-4 border-green-900/50 md:w-[600px] md:h-[400px]"></div>
+			{gameState.currentRoundCards.map((play, idx) => {
+		        // index of player who played the card
+		        const playerIndex = gameState.players.findIndex(p => p.persistentId === play.playerId);
+		        const myIndex = gameState.players.findIndex(p => p.id === socket.id);
+		        // relative position
+		        const totalPlayers = gameState.players.length;
+		        const relativePos = (playerIndex - myIndex + totalPlayers) % totalPlayers;
+
+		        // position config
+		        let positionStyle = {};
+		        
+		        // compute coordinates
+		        if (relativePos === 0) positionStyle = { transform: 'translate(0px, 60px)' }; 
+		        else if (relativePos === 1) positionStyle = { transform: 'translate(60px, 0px)' }; 
+		        else if (relativePos === 2) positionStyle = { transform: 'translate(0px, -60px)' }; 
+		        else if (relativePos === 3) positionStyle = { transform: 'translate(-60px, 0px)' };
+		        
+		        // fix for 3 players
+		        if (totalPlayers === 3 && relativePos === 2) positionStyle = { transform: 'translate(-60px, -20px)' };
+
+		        const isDesktop = window.innerWidth > 768; 
+		        if (isDesktop) {
+		             if (relativePos === 0) positionStyle = { transform: 'translate(0px, 120px)' };
+		             else if (relativePos === 1) positionStyle = { transform: 'translate(150px, 0px)' };
+		             else if (relativePos === 2) positionStyle = { transform: 'translate(0px, -120px)' };
+		             else if (relativePos === 3) positionStyle = { transform: 'translate(-150px, 0px)' };
+		             if (totalPlayers === 3 && relativePos === 2) positionStyle = { transform: 'translate(-120px, -50px)' };
+		        }
+
+		        const playerName = gameState.players[playerIndex].username;
+
+		        return (
+		            <div 
+		                key={play.playerId}
+		                className="absolute flex flex-col items-center justify-center transition-all duration-500"
+		                style={{ ...positionStyle, zIndex: 10 }}
+		            >
+		                {/* the card */}
+		                <img 
+		                    src={getCardAsset(play.card?.suit, play.card?.value)}
+		                    alt="played card"
+		                    className="w-20 h-auto shadow-xl rounded-lg md:w-32"
+		                />
+		                
+		                {/* ace of denars */}
+		                <div className="mt-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm whitespace-nowrap">
+		                    {playerName} 
+		                    {play.mode === 'high' && <span className="text-yellow-400 font-bold ml-1">(HIGH)</span>}
+		                    {play.mode === 'low' && <span className="text-red-400 font-bold ml-1">(LOW)</span>}
+		                </div>
+		            </div>
+		        );
+		    })}
 		</div>
 
 		{/* Player Controls (Lobby) */}
@@ -313,8 +374,22 @@ function App() {
 
 		{/* Player Hand */}
 		<div className="mt-auto w-full flex flex-col items-center">
-		  <div className="flex justify-between px-4 mb-2 text-sm text-green-200 w-full md:w-3/4 md:text-lg">
+			
+		  <div className="relative flex justify-between px-4 mb-2 text-sm text-green-200 w-full md:w-3/4 md:text-lg">
 			<span>Lives: {me.lives}</span>
+			{roundSummary?.find(s => s.persistentId === me.persistentId) && (
+			    <div className={`
+			      absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+			      px-4 py-1 rounded-full font-bold shadow-lg animate-bounce z-50 whitespace-nowrap
+			      ${roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 
+			        ? 'bg-green-500 text-white' 
+			        : 'bg-red-600 text-white border-2 border-white'}
+			    `}>
+			      {roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 
+			        ? 'SAFE' 
+			        : `-${roundSummary.find(s => s.persistentId === me.persistentId).livesLost}`}
+			    </div>
+			)}
 			<span>Bid: {gameState.bids[me.persistentId] ?? '-'} | Taken: {me.tricks}</span>
 		  </div>
 		  
@@ -327,7 +402,7 @@ function App() {
 			        <img 
 			            key={card.id || idx}
 			            src={isBlind ? RETRO_PATH : getCardAsset(card.suit, card.value)}
-			            onClick={() => !isBlind && isPlayable ? handleCardClick(card) : null}
+			            onClick={() => isPlayable ? handleCardClick(card) : null}
 			            className={`
                             w-24 h-auto rounded-lg shadow-xl cursor-pointer transition-transform duration-200 border-2
                             md:w-48 md:hover:-translate-y-12
@@ -394,7 +469,13 @@ function App() {
 			<button onClick={downloadScoreboard} className="bg-blue-600 px-6 py-3 rounded font-bold hover:bg-blue-500">
 			  Save Scoreboard Image
 			</button>
-			<button onClick={() => window.location.reload()} className="bg-gray-600 px-6 py-3 rounded font-bold hover:bg-gray-500">
+			<button onClick={() => {
+			        localStorage.removeItem(STORAGE_ITEM_NAME);
+			        
+			        // remove URL GET parameters
+			        window.history.replaceState({}, document.title, window.location.pathname);
+			        window.location.reload();
+			    }} className="bg-gray-600 px-6 py-3 rounded font-bold hover:bg-gray-500">
 			  Back to Menu
 			</button>
 		  </div>
