@@ -23,6 +23,10 @@ const VALUES = ['Asso', '2', '3', '4', '5', '6', '7', 'Fante', 'Cavallo', 'Re'];
 const getCardRank = (value) => VALUES.indexOf(value);
 const getSuitRank = (suit) => SUITS.indexOf(suit);
 
+const getPlayerBySocket = (room, socketId) => {
+    return room.players.find(p => p.id === socketId);
+};
+
 const createDeck = () => {
 	let deck = [];
 	for (let s of SUITS) {
@@ -96,10 +100,12 @@ io.on('connection', (socket) => {
 
 	socket.on('createRoom', ({ username, initialLives }) => {
 		const roomCode = uuidv4().slice(0, 6).toUpperCase();
+		const pid = uuidv4(); // persistent ID
+
 		rooms[roomCode] = {
 			code: roomCode,
 			hostId: socket.id,
-			players: [{ id: socket.id, username, lives: parseInt(initialLives), hand: [], tricks: 0, isSpectator: false }],
+			players: [{ id: socket.id, persistentId: pid, username, lives: parseInt(initialLives), hand: [], tricks: 0, isSpectator: false }],
 			phase: 'LOBBY',
 			initialLives: parseInt(initialLives),
 			cardsPerHand: 5,
@@ -112,6 +118,9 @@ io.on('connection', (socket) => {
 			notification: 'Waiting for players...'
 		};
 		socket.join(roomCode);
+
+		socket.emit('sessionSaved', { roomCode, persistentId: pid });
+
 		socket.emit('roomCreated', roomCode);
 		io.to(roomCode).emit('updateState', getPublicState(rooms[roomCode], null));
 	});
@@ -122,13 +131,44 @@ io.on('connection', (socket) => {
 		if (room.players.find(p => p.username === username)) return socket.emit('error', 'Username taken');
 		if (room.phase !== 'LOBBY') return socket.emit('error', 'Game already started');
 
-		room.players.push({ id: socket.id, username, lives: room.initialLives, hand: [], tricks: 0, isSpectator: false });
+		const pid = uuidv4();
+		room.players.push({ id: socket.id, persistentId: pid, username, lives: room.initialLives, hand: [], tricks: 0, isSpectator: false });
 		socket.join(roomCode);
+
+		socket.emit('sessionSaved', { roomCode, persistentId: pid });
 		
 		// Broadcast update to everyone individually to mask cards correctly
 		room.players.forEach(p => {
 			io.to(p.id).emit('updateState', getPublicState(room, p.id));
 		});
+	});
+
+	socket.on('rejoinGame', ({ roomCode, persistentId }) => {
+	    const room = rooms[roomCode];
+	    if (!room) {
+	        // if room doesn't exist anymore
+	        return socket.emit('resetSession'); 
+	    }
+
+	    const player = room.players.find(p => p.persistentId === persistentId);
+	    if (!player) {
+	        return socket.emit('resetSession');
+	    }
+
+	    // update socket
+	    const oldSocketId = player.id;
+	    player.id = socket.id;
+	    
+	    if (room.hostId === oldSocketId)
+	    {
+			room.hostId = socket.id;
+	    }
+
+	    socket.join(roomCode);
+	    console.log(`Player ${player.username} reconnected`);
+
+	    // update client of such player
+	    socket.emit('updateState', getPublicState(room, socket.id));
 	});
 
 	socket.on('startGame', ({ roomCode }) => {
@@ -143,14 +183,18 @@ io.on('connection', (socket) => {
 		const room = rooms[roomCode];
 		if (!room || room.phase !== 'BIDDING') return;
 		
-		const playerIndex = room.players.findIndex(p => p.id === socket.id);
-		if (playerIndex !== room.currentTurn) return;
+		const player = getPlayerBySocket(room, socket.id);
+    	if (!player) return;
+
+		const playerIndex = room.players.findIndex(p => p.persistentId === player.persistentId);
+    	if (playerIndex !== room.currentTurn) return;
 
 		// Validation
 		if (bid < 0 || bid > room.cardsPerHand) return;
 		
 		// Last player restriction
 		const isLastBidder = Object.keys(room.bids).length === room.players.filter(p => !p.isSpectator).length - 1;
+
 		if (isLastBidder) {
 			const currentSum = Object.values(room.bids).reduce((a, b) => a + b, 0);
 			if (currentSum + bid === room.cardsPerHand) {
@@ -158,7 +202,7 @@ io.on('connection', (socket) => {
 			}
 		}
 
-		room.bids[socket.id] = bid;
+		room.bids[player.persistentId] = bid;
 		advanceTurn(room);
 	});
 
@@ -166,17 +210,18 @@ io.on('connection', (socket) => {
 		const room = rooms[roomCode];
 		if (!room || room.phase !== 'PLAYING') return;
 
-		const playerIndex = room.players.findIndex(p => p.id === socket.id);
-		if (playerIndex !== room.currentTurn) return;
+		const player = getPlayerBySocket(room, socket.id);
+	    if (!player) return;
 
-		const player = room.players[playerIndex];
-		
+	    const playerIndex = room.players.findIndex(p => p.persistentId === player.persistentId);
+	    if (playerIndex !== room.currentTurn) return;
+
 		// Remove card from hand
 		const cardIndex = player.hand.findIndex(c => c.suit === card.suit && c.value === card.value);
 		if (cardIndex === -1) return;
 		player.hand.splice(cardIndex, 1);
 
-		room.currentRoundCards.push({ playerId: socket.id, card, mode });
+		room.currentRoundCards.push({ playerId: player.persistentId, card, mode });
 
 		// Check if everyone played
 		const activePlayers = room.players.filter(p => !p.isSpectator);
@@ -264,13 +309,13 @@ function resolveTrick(room) {
 	// If same suit, value comparison
 	// Exception: Ace of Denari (High/Low)
 	
-	let winnerId = null;
+	let winnerPersistentId = null;
 	let winningCardObj = null;
 
 	room.currentRoundCards.forEach((play) => {
 		if (!winningCardObj) {
 			winningCardObj = play;
-			winnerId = play.playerId;
+			winnerPersistentId = play.playerId;
 			return;
 		}
 
@@ -279,12 +324,12 @@ function resolveTrick(room) {
 
 		if (isBetterCard(current, best)) {
 			winningCardObj = current;
-			winnerId = current.playerId;
+			winnerPersistentId = current.playerId;
 		}
 	});
 
 	// Update tricks
-	const winner = room.players.find(p => p.id === winnerId);
+	const winner = room.players.find(p => p.persistentId === winnerPersistentId);
 	winner.tricks += 1;
 	
 	// Notification
@@ -302,7 +347,7 @@ function resolveTrick(room) {
 	} else {
 		room.currentRoundCards = [];
 		// Winner starts next trick
-		room.currentTurn = room.players.findIndex(p => p.id === winnerId);
+		room.currentTurn = room.players.findIndex(p => p.persistentId === winnerPersistentId);
 		broadcastUpdate(room);
 	}
 }
@@ -342,21 +387,25 @@ function isBetterCard(challenger, defender) {
 function calculateScores(room) {
 	room.players.forEach(p => {
 		if (p.isSpectator) return;
-		const bid = room.bids[p.id];
+		const bid = room.bids[p.persistentId];
+		if (bid === undefined)
+		{
+			console.log("Error: "+p.username+" has undefined bids");
+			bid = 0;
+		}
 		const tricks = p.tricks;
 		const diff = Math.abs(bid - tricks);
 		p.lives -= diff;
 		
 		if (p.lives <= 0) {
 			p.isSpectator = true;
-			p.lives = 0; // Display 0
 		}
 	});
 
 	// Check Game Over or Next Level
 	const survivors = room.players.filter(p => !p.isSpectator);
 	
-	if (survivors.length < 2 && room.players.length >= 2) {
+	if (survivors.length <= 2 && room.players.length >= 2) {
 		// Game Over
 		room.phase = 'GAME_OVER';
 		broadcastUpdate(room);

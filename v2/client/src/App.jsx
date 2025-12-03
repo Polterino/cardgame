@@ -5,20 +5,6 @@ import html2canvas from 'html2canvas';
 // Change URL if hosting remotely
 const socket = io('http://192.168.69.19:3001');
 
-// UI Helpers
-const SUIT_ICONS = {
-  'Denari': '🟡', // Using emojies
-  'Coppe': '🏆',
-  'Spade': '⚔️',
-  'Bastoni': '🌲'
-};
-const SUIT_COLORS = {
-  'Denari': 'text-yellow-600',
-  'Coppe': 'text-red-600',
-  'Spade': 'text-blue-600',
-  'Bastoni': 'text-green-700'
-};
-
 function App() {
   const [connected, setConnected] = useState(false);
   const [gameState, setGameState] = useState(null);
@@ -31,6 +17,7 @@ function App() {
   const CARD_PATH = "/napoletane/";
   const RETRO_CARD = "retro.jpg";
   const RETRO_PATH = CARD_PATH + RETRO_CARD;
+  const STORAGE_ITEM_NAME = "game_session";
 
   const getCardAsset = (suit, value) => {
 	  if (!suit || !value) return RETRO_PATH;
@@ -43,13 +30,32 @@ function App() {
 	const code = params.get('code');
 	if (code) setRoomCodeInput(code);
 	
-	socket.on('connect', () => setConnected(true));
+	socket.on('connect', () => {
+		setConnected(true);
+		const savedSession = localStorage.getItem(STORAGE_ITEM_NAME);
+        if (savedSession) {
+            const { roomCode, persistentId } = JSON.parse(savedSession);
+            socket.emit('rejoinGame', { roomCode, persistentId });
+        }
+	});
+
 	socket.on('updateState', (state) => setGameState(state));
 	socket.on('roomCreated', (code) => {
 	  setRoomCodeInput(code);
 	  // Auto join is handled by server state update usually, 
 	  // but here the creator is already in state
 	});
+
+	socket.on('sessionSaved', ({ roomCode, persistentId }) => {
+        localStorage.setItem(STORAGE_ITEM_NAME, JSON.stringify({ roomCode, persistentId }));
+    });
+
+    socket.on('resetSession', () => {
+        localStorage.removeItem(STORAGE_ITEM_NAME);
+        setGameState(null);
+        alert('Session expired or room closed.');
+    });
+
 	socket.on('error', (msg) => alert(msg));
 
 	return () => socket.off();
@@ -193,6 +199,15 @@ function App() {
 		<div className="text-sm">
 		  {gameState.phase} - {gameState.cardsPerHand} Cards Round
 		</div>
+		<button 
+		    onClick={() => {
+		        localStorage.removeItem(STORAGE_ITEM_NAME);
+		        window.location.reload();
+		    }}
+		    className="ml-4 text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-500"
+		>
+		    Exit session
+		</button>
 	  </div>
 
 	  {/* Main Table Area */}
@@ -213,7 +228,7 @@ function App() {
 			  <span className="text-xs">{p.username}</span>
 			  <div className="flex text-xs gap-1 mt-1">
 				<span>❤️ {p.lives}</span>
-				<span>🎯 {gameState.bids[p.id] !== undefined ? gameState.bids[p.id] : '-'}</span>
+				<span>🎯 {gameState.bids[p.persistentId] !== undefined ? gameState.bids[p.persistentId] : '-'}</span>
 				<span>✊ {p.tricks}</span>
 			  </div>
 			  <div className="mt-2 flex -space-x-8"> {/* -space-x-8 to overlap cards */}
@@ -300,7 +315,7 @@ function App() {
 		<div className="mt-auto w-full">
 		  <div className="flex justify-between px-4 mb-2 text-sm text-green-200">
 			<span>Lives: {me.lives}</span>
-			<span>Bid: {gameState.bids[me.id] ?? '-'} | Taken: {me.tricks}</span>
+			<span>Bid: {gameState.bids[me.persistentId] ?? '-'} | Taken: {me.tricks}</span>
 		  </div>
 		  
 		  <div className="flex justify-center -space-x-4 pb-4 overflow-x-auto min-h-[140px]">
