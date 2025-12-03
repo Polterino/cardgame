@@ -70,7 +70,7 @@ function App() {
 
   const joinRoom = () => {
 	if (!username || !roomCodeInput) return alert('Enter username and room code');
-	socket.emit('joinRoom', { roomCode: roomCodeInput, username });
+	socket.emit('joinRoom', { roomCode: roomCodeInput.toUpperCase(), username });
   };
 
   const startGame = () => {
@@ -168,7 +168,7 @@ function App() {
 				  className="w-full p-2 text-black rounded uppercase"
 				  placeholder="Room Code" 
 				  value={roomCodeInput} 
-				  onChange={e => setRoomCodeInput(e.target.value)} 
+				  onChange={e => setRoomCodeInput(e.target.value.toUpperCase())} 
 				/>
 				<button 
 				  onClick={joinRoom}
@@ -211,7 +211,7 @@ function App() {
 	  </div>
 
 	  {/* Main Table Area */}
-	  <div className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+	  <div className="flex-1 flex flex-col items-center justify-between p-4 relative w-full h-full md:max-w-7xl md:mx-auto">
 		
 		{/* Notifications */}
 		<div className="absolute top-4 bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm z-10 animate-pulse">
@@ -219,7 +219,7 @@ function App() {
 		</div>
 
 		{/* Other Players (Top/Sides - Simplified as a row for mobile) */}
-		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full">
+		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:gap-12 md:justify-around md:items-start">
 		  {gameState.players.filter(p => p.id !== socket.id).map(p => (
 			<div key={p.id} className={`flex flex-col items-center p-2 rounded ${gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400' : 'bg-green-900/50'}`}>
 			  <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center mb-1">
@@ -254,17 +254,17 @@ function App() {
 		</div>
 
 		{/* Center: Played Cards */}
-		<div className="h-48 w-full flex items-center justify-center mb-8">
-		  <div className="relative w-64 h-48 bg-green-700/30 rounded-full border-4 border-green-900/50 flex items-center justify-center">
+		<div className="h-48 w-full flex items-center justify-center mb-8 md:h-96 md:mb-0">
+          <div className="relative w-64 h-48 bg-green-700/30 rounded-full border-4 border-green-900/50 flex items-center justify-center md:w-[600px] md:h-[400px]">
 			{gameState.currentRoundCards.map((play, idx) => (
 			  <img 
 				    src={getCardAsset(play.card.suit, play.card.value)}
 				    alt={`${play.card.value} ${play.card.suit}`}
-				    className="absolute w-24 h-auto shadow-xl rounded-lg transform transition-all"
-				    style={{ 
-				        transform: `rotate(${idx * 20 - (gameState.currentRoundCards.length * 10)}deg) translateY(${idx%2===0 ? -5 : 5}px)`,
-				        zIndex: idx
-				    }}
+				    className="absolute w-24 h-auto shadow-xl rounded-lg transform transition-all md:w-44"
+                    style={{
+                        transform: `rotate(${idx * 20 - (gameState.currentRoundCards.length * 10)}deg) translateY(${idx%2===0 ? -5 : 5}px) scale(1.0)`,
+                        zIndex: idx
+                    }}
 			   />
 			))}
 		  </div>
@@ -312,14 +312,13 @@ function App() {
 		)}
 
 		{/* Player Hand */}
-		<div className="mt-auto w-full">
-		  <div className="flex justify-between px-4 mb-2 text-sm text-green-200">
+		<div className="mt-auto w-full flex flex-col items-center">
+		  <div className="flex justify-between px-4 mb-2 text-sm text-green-200 w-full md:w-3/4 md:text-lg">
 			<span>Lives: {me.lives}</span>
 			<span>Bid: {gameState.bids[me.persistentId] ?? '-'} | Taken: {me.tricks}</span>
 		  </div>
 		  
-		  <div className="flex justify-center -space-x-4 pb-4 overflow-x-auto min-h-[140px]">
-			{me.hand.map((card, idx) => {
+		  <div className="flex justify-center -space-x-4 pb-4 overflow-x-auto min-h-[140px] w-full md:-space-x-12 md:pb-8 md:min-h-[200px]">			{me.hand.map((card, idx) => {
 			    const isPlayable = gameState.phase === 'PLAYING' && isMyTurn;
 			    const isBlind = gameState.cardsPerHand === 1; // Blind round
 			    const isSelected = selectedCardId === card.id;
@@ -330,11 +329,11 @@ function App() {
 			            src={isBlind ? RETRO_PATH : getCardAsset(card.suit, card.value)}
 			            onClick={() => !isBlind && isPlayable ? handleCardClick(card) : null}
 			            className={`
-			                w-24 h-auto rounded-lg shadow-xl cursor-pointer transition-transform duration-200 border-2
-			                ${isSelected ? '-translate-y-8 border-yellow-400 z-10' : 'translate-y-0 border-transparent'}
-			                ${!isPlayable ? 'opacity-90' : 'hover:-translate-y-2'}
-			            `}
-			            style={{ marginLeft: idx === 0 ? 0 : '-40px' }} // overlapping
+                            w-24 h-auto rounded-lg shadow-xl cursor-pointer transition-transform duration-200 border-2
+                            md:w-48 md:hover:-translate-y-12
+                            ${isSelected ? '-translate-y-8 border-yellow-400 z-10 md:-translate-y-16' : 'translate-y-0 border-transparent'}
+                            ${!isPlayable ? 'opacity-90' : 'hover:-translate-y-2'}
+                        `}
 			        />
 			    );
 			})}
@@ -355,7 +354,7 @@ function App() {
 	                &times;
 	            </button>
 
-	            <h3 className="text-xl font-bold mb-4">Play Ace of Denari as:</h3>
+	            <h3 className="text-xl font-bold mb-4">Play as:</h3>
 	            <div className="flex gap-4 justify-center">
 	                <button onClick={() => confirmAce('high')} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 shadow">
 	                    Highest card
