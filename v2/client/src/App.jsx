@@ -225,7 +225,7 @@ function App() {
 	  </div>
 
 	  {/* Main Table Area */}
-	  <div className="flex-1 flex flex-col items-center justify-between p-4 relative w-full h-full md:max-w-7xl md:mx-auto">
+	  <div className="flex-1 flex flex-col items-center justify-between p-4 relative w-full h-full">
 		
 		{/* Notifications */}
 		<div className="absolute top-4 bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm z-10 animate-pulse">
@@ -233,7 +233,7 @@ function App() {
 		</div>
 
 		{/* Other Players (Top/Sides - Simplified as a row for mobile) */}
-		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:gap-12 md:justify-around md:items-start">
+		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:justify-around md:items-start md:px-10">
 		  {gameState.players.filter(p => p.id !== socket.id).map(p => (
 			<div key={p.id} className={`flex flex-col items-center p-2 rounded relative ${gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400' : 'bg-green-900/50'}`}>
 				{/* LIVES BADGE */}
@@ -274,61 +274,61 @@ function App() {
 		</div>
 
 		{/* Center: Played Cards */}
-		<div className="h-48 w-full flex items-center justify-center mb-8 md:h-96 md:mb-0 relative">
-          <div className="absolute w-64 h-48 bg-green-700/30 rounded-full border-4 border-green-900/50 md:w-[600px] md:h-[400px]"></div>
+		<div className="w-full flex-1 flex flex-col items-center justify-center my-4 relative z-0">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 
+                          bg-green-700/30 border-4 border-green-900/50 
+                          w-[90vw] h-[280px] rounded-[100px]
+                          md:w-[80vw] md:h-[60vh] md:rounded-[300px] 
+                          -z-10 pointer-events-none">
+          </div>
+          {/* Played cards */}
+          {/* Flexbox container for cards */}
+          <div className="flex items-center justify-center 
+                          /* Mobile: sovrapposizione negativa (-space-x-4) */
+                          -space-x-4 
+                          /* Desktop: spazio normale (gap-4) o sovrapposizione ridotta se preferisci */
+                          md:space-x-6 md:gap-0">
+
 			{gameState.currentRoundCards.map((play, idx) => {
-		        // index of player who played the card
-		        const playerIndex = gameState.players.findIndex(p => p.persistentId === play.playerId);
-		        const myIndex = gameState.players.findIndex(p => p.id === socket.id);
-		        // relative position
-		        const totalPlayers = gameState.players.length;
-		        const relativePos = (playerIndex - myIndex + totalPlayers) % totalPlayers;
+		        if (!play || !play.card) return null;
+                const playerIndex = gameState.players.findIndex(p => p.persistentId === play.playerId);
+                if (playerIndex === -1) return null;
+                
+                const playerName = gameState.players[playerIndex].username;
 
-		        // position config
-		        let positionStyle = {};
-		        
-		        // compute coordinates
-		        if (relativePos === 0) positionStyle = { transform: 'translate(0px, 60px)' }; 
-		        else if (relativePos === 1) positionStyle = { transform: 'translate(60px, 0px)' }; 
-		        else if (relativePos === 2) positionStyle = { transform: 'translate(0px, -60px)' }; 
-		        else if (relativePos === 3) positionStyle = { transform: 'translate(-60px, 0px)' };
-		        
-		        // fix for 3 players
-		        if (totalPlayers === 3 && relativePos === 2) positionStyle = { transform: 'translate(-60px, -20px)' };
+                // ace highlight
+                let borderColor = "border-transparent";
+                if (play.mode === 'high') borderColor = "border-yellow-400";
+                if (play.mode === 'low') borderColor = "border-red-400";
 
-		        const isDesktop = window.innerWidth > 768; 
-		        if (isDesktop) {
-		             if (relativePos === 0) positionStyle = { transform: 'translate(0px, 120px)' };
-		             else if (relativePos === 1) positionStyle = { transform: 'translate(150px, 0px)' };
-		             else if (relativePos === 2) positionStyle = { transform: 'translate(0px, -120px)' };
-		             else if (relativePos === 3) positionStyle = { transform: 'translate(-150px, 0px)' };
-		             if (totalPlayers === 3 && relativePos === 2) positionStyle = { transform: 'translate(-120px, -50px)' };
-		        }
-
-		        const playerName = gameState.players[playerIndex].username;
-
-		        return (
-		            <div 
-		                key={play.playerId}
-		                className="absolute flex flex-col items-center justify-center transition-all duration-500"
-		                style={{ ...positionStyle, zIndex: 10 }}
-		            >
-		                {/* the card */}
-		                <img 
-		                    src={getCardAsset(play.card?.suit, play.card?.value)}
-		                    alt="played card"
-		                    className="w-20 h-auto shadow-xl rounded-lg md:w-32"
-		                />
-		                
-		                {/* ace of denars */}
-		                <div className="mt-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm whitespace-nowrap">
-		                    {playerName} 
-		                    {play.mode === 'high' && <span className="text-yellow-400 font-bold ml-1">(HIGH)</span>}
-		                    {play.mode === 'low' && <span className="text-red-400 font-bold ml-1">(LOW)</span>}
-		                </div>
-		            </div>
-		        );
+                return (
+                    <div 
+                        key={play.playerId}
+                        className="relative flex flex-col items-center transition-all duration-300 hover:-translate-y-2 hover:z-20"
+                        style={{ zIndex: idx }} // overlapping order
+                    >
+                         <img 
+                            src={getCardAsset(play.card?.suit, play.card?.value)}
+                            alt="played card"
+                            className={`w-24 h-auto shadow-xl rounded-lg border-2 ${borderColor} bg-white md:w-32 lg:w-40`}
+                        />
+                        
+                        {/* player Info */}
+                        <div className="absolute -bottom-6 flex flex-col items-center">
+                            <div className="bg-black/70 text-white text-[10px] md:text-xs px-3 py-1 rounded-full backdrop-blur-md whitespace-nowrap shadow-sm border border-white/10">
+                                {playerName} 
+                            </div>
+                            
+                            {(play.mode === 'high' || play.mode === 'low') && (
+                                <span className={`text-[9px] font-bold mt-0.5 ${play.mode === 'high' ? 'text-yellow-300' : 'text-red-300'}`}>
+                                    {play.mode === 'high' ? 'HIGH' : 'LOW'}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                );
 		    })}
+		    </div>
 		</div>
 
 		{/* Player Controls (Lobby) */}
@@ -336,7 +336,7 @@ function App() {
 		  <button 
 			onClick={startGame}
 			disabled={gameState.players.length < 3}
-			className="bg-yellow-500 hover:bg-yellow-400 text-green-900 px-8 py-3 rounded-lg font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mb-8"
+			className="bg-yellow-500 hover:bg-yellow-400 text-green-900 px-8 py-3 rounded-lg font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mb-8 relative z-50"
 		  >
 			Start Game ({gameState.players.length}/3+)
 		  </button>
@@ -344,7 +344,7 @@ function App() {
 
 		{/* Player Controls (Bidding) */}
 		{gameState.phase === 'BIDDING' && isMyTurn && !me.isSpectator && (
-		  <div className="flex flex-col items-center mb-8 bg-green-900 p-4 rounded-lg shadow-lg z-20">
+		  <div className="flex flex-col items-center mb-8 bg-green-900 p-4 rounded-lg shadow-lg relative z-50">
 			<h3 className="mb-2 font-bold text-yellow-400">Choose your bid</h3>
 			<div className="flex gap-2 flex-wrap justify-center">
 			  {[...Array(gameState.cardsPerHand + 1)].map((_, i) => {
@@ -375,7 +375,7 @@ function App() {
 		{/* Player Hand */}
 		<div className="mt-auto w-full flex flex-col items-center">
 			
-		  <div className="relative flex justify-between px-4 mb-2 text-sm text-green-200 w-full md:w-3/4 md:text-lg">
+		  <div className="relative flex justify-between px-4 mb-2 text-sm text-green-200 w-full md:w-full md:px-20 md:text-lg">
 			<span>Lives: {me.lives}</span>
 			{roundSummary?.find(s => s.persistentId === me.persistentId) && (
 			    <div className={`
