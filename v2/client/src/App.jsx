@@ -155,6 +155,10 @@ function App() {
 	socket.emit('startGame', { roomCode: gameState.code });
   };
 
+  const returnToLobby = () => {
+    socket.emit('returnToLobby', { roomCode: gameState.code, username});
+  };
+
   const submitBid = (bid) => {
 	socket.emit('submitBid', { roomCode: gameState.code, bid });
   };
@@ -311,7 +315,7 @@ function App() {
 		{/* Other Players (Top/Sides - Simplified as a row for mobile) */}
 		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:justify-around md:items-start md:px-10 relative z-30 pointer-events-none">
 		  {orderedOpponents.map(p => (
-			<div key={p.id} className={`flex flex-col items-center p-3 rounded-xl relative transition-all ${gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400 shadow-lg scale-105' : 'bg-green-900/40'}`}>
+			<div key={p.id} className={`flex flex-col items-center p-3 rounded-xl relative transition-all ${isActionPhase && gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400 shadow-lg scale-105' : 'bg-green-900/40'}`}>
 			    
 			    {/* LIVES BADGE (Round Summary) */}
 			    {roundSummary?.find(s => s.persistentId === p.persistentId) && (
@@ -601,6 +605,14 @@ function App() {
 			<button onClick={downloadScoreboard} className="bg-blue-600 px-6 py-3 rounded font-bold hover:bg-blue-500">
 			  Save Scoreboard Image
 			</button>
+			
+			<button 
+                onClick={returnToLobby} 
+                className="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded font-bold shadow-lg transform hover:scale-105 transition-transform border-2 border-green-400"
+            >
+                Return to Lobby
+            </button>
+
 			<button onClick={() => {
 			        localStorage.removeItem(STORAGE_ITEM_NAME);
 			        

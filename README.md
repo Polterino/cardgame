@@ -6,7 +6,7 @@ The game is fully responsive and optimized to be played across Desktop, Mobile, 
 
 ## Game Rules
 
-The game uses a standard 40-card deck (Trevisane or Napoletane). Players start with a set number of lives (default is 3 to 5).
+The game uses a standard 40-card deck. Players start with a set number of lives (default is 3 to 5).
 
 ### 1. Game Structure
 
@@ -74,7 +74,7 @@ When the game reaches the round with **only 1 card**:
 
 Open a terminal, navigate to the `server` folder, and install dependencies:
 
-Bash
+ 
 
 ```
 cd server
@@ -84,7 +84,7 @@ npm install
 
 Start the server:
 
-Bash
+ 
 
 ```
 node index.js
@@ -97,7 +97,7 @@ _The server default port is **3001**._
 
 Open a **new terminal window**, navigate to the `client` folder, and install dependencies:
 
-Bash
+ 
 
 ```
 cd client

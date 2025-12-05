@@ -175,6 +175,55 @@ io.on('connection', (socket) => {
 	    broadcastUpdate(room);
 	});
 
+	// Called after a match, players can restart the same lobby
+	socket.on('returnToLobby', ({ roomCode, username }) => {
+		const room = rooms[roomCode];
+		if (!room) return;
+
+		const newPid = uuidv4();
+		const freshPlayer = {
+			id: socket.id,
+			persistentId: newPid,
+			username: username,
+			lives: room.initialLives,
+			hand: [],
+			tricks: 0,
+			isSpectator: false,
+			online: true
+		};
+
+		if (room.phase === 'GAME_OVER')
+		{
+			console.log(`Room ${roomCode} hard reset by ${username}`);
+			
+			room.phase = 'LOBBY';
+			room.hostId = socket.id; // Become Host
+			room.cardsPerHand = 5;
+			room.deck = [];
+			room.bids = {};
+			room.currentRoundCards = [];
+			room.currentTurn = 0;
+			room.startPlayerIndex = 0;
+			
+			// Reset all players
+			room.players = [freshPlayer];
+			socket.emit('sessionSaved', { roomCode, persistentId: newPid });
+		} 
+		// room already reset
+		else if (room.phase === 'LOBBY')
+		{
+			const alreadyIn = room.players.find(p => p.username === username);
+			
+			if (!alreadyIn) {
+				room.players.push(freshPlayer);
+				socket.emit('sessionSaved', { roomCode, persistentId: newPid });
+			}
+			else socket.emit('error', 'There\'s already a player with your username in the room');
+		}
+
+		broadcastUpdate(room);
+	});
+
 	socket.on('startGame', ({ roomCode }) => {
 		const room = rooms[roomCode];
 		if (!room || room.hostId !== socket.id) return;
@@ -276,7 +325,7 @@ function startRound(room) {
 	
 	// Deal cards
 	const activePlayers = room.players.filter(p => !p.isSpectator);
-	if (activePlayers.length < 2) {
+	if (activePlayers.length <= 2) {
 		room.phase = 'GAME_OVER';
 		broadcastUpdate(room);
 		return;
@@ -449,7 +498,7 @@ function calculateScores(room) {
         if (!rooms[room.code]) return;
 		const survivors = room.players.filter(p => !p.isSpectator);
 		
-		if (survivors.length <= 2 && room.players.length >= 2) {
+		if (survivors.length <= 2) {
 			// Game Over
 			room.phase = 'GAME_OVER';
 			broadcastUpdate(room);
