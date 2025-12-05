@@ -269,14 +269,16 @@ function App() {
 	    {gameState && isMyTurn && !me.isSpectator && isActionPhase && (
 	        <>
 	            {/* Highlighting screen */}
-	            <div className="fixed inset-0 border-[6px] border-yellow-400/60 z-50 pointer-events-none animate-pulse shadow-[inset_0_0_50px_rgba(250,204,21,0.5)]"></div>
+	            <div className="fixed inset-0 border-[6px] border-yellow-400/60 z-[90] pointer-events-none animate-pulse shadow-[inset_0_0_50px_rgba(250,204,21,0.5)]"></div>
 	            
 	            {/* Banner your turn */}
-	            <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-	                <div className="bg-yellow-500 text-green-900 px-6 py-2 rounded-full font-bold text-xl shadow-xl animate-bounce border-2 border-white">
+	            {/*
+	            <div className="fixed bottom-36 md:bottom-56 left-1/2 -translate-x-1/2 z-[100] pointer-events-none">
+     				<div className="bg-yellow-500 text-green-900 px-6 py-2 rounded-full font-bold text-lg md:text-xl shadow-2xl animate-bounce border-4 border-white tracking-widest whitespace-nowrap">
 	                    IT'S YOUR TURN!
 	                </div>
 	            </div>
+	            */}
 	        </>
 	    )}
 	  {/* Header */}
@@ -302,12 +304,12 @@ function App() {
 	  <div className="flex-1 flex flex-col items-center justify-between p-4 relative w-full h-full">
 		
 		{/* Notifications */}
-		<div className="absolute top-4 bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm z-10 animate-pulse">
+		<div className="absolute top-4 bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm z-10 animate-pulse z-50">
 		  {gameState.notification}
 		</div>
 
 		{/* Other Players (Top/Sides - Simplified as a row for mobile) */}
-		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:justify-around md:items-start md:px-10">
+		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:justify-around md:items-start md:px-10 relative z-30 pointer-events-none">
 		  {orderedOpponents.map(p => (
 			<div key={p.id} className={`flex flex-col items-center p-3 rounded-xl relative transition-all ${gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400 shadow-lg scale-105' : 'bg-green-900/40'}`}>
 			    
