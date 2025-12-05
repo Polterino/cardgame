@@ -305,11 +305,22 @@ function App() {
 			        </div>
 			    )}
 
-			    {/* Avatar & Name */}
-			    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border-2 border-green-600/50 flex items-center justify-center mb-1 shadow-md">
-			        <span className="text-lg font-bold text-gray-200">{p.username[0].toUpperCase()}</span>
-			    </div>
-			    <span className="text-sm font-semibold text-white drop-shadow-md mb-2">{p.username}</span>
+			    {/* Avatar & Name & online status */}
+			    <div className="relative mb-1">
+				    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border-2 border-green-600/50 flex items-center justify-center shadow-md">
+				        <span className="text-lg font-bold text-gray-200">{p.username[0].toUpperCase()}</span>
+				    </div>
+				    
+				    {/* Online status */}
+				    <div 
+				        className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-green-900 rounded-full shadow-sm
+				        ${p.online ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]'}`}
+				        title={p.online ? "Online" : "Offline"}
+				    ></div>
+				</div>
+			    <span className="text-sm font-semibold text-white drop-shadow-md mb-2">
+			    	{p.username}
+			    </span>
 
 			    {/* NEW STATS ROW */}
 			    <div className="flex items-center gap-3 bg-black/40 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-inner">

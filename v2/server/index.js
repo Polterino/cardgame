@@ -108,7 +108,7 @@ io.on('connection', (socket) => {
 		rooms[roomCode] = {
 			code: roomCode,
 			hostId: socket.id,
-			players: [{ id: socket.id, persistentId: pid, username, lives: parseInt(initialLives), hand: [], tricks: 0, isSpectator: false }],
+			players: [{ id: socket.id, persistentId: pid, username, lives: parseInt(initialLives), hand: [], tricks: 0, isSpectator: false, online: true }],
 			phase: 'LOBBY',
 			initialLives: parseInt(initialLives),
 			cardsPerHand: 5,
@@ -135,7 +135,7 @@ io.on('connection', (socket) => {
 		if (room.phase !== 'LOBBY') return socket.emit('error', 'Game already started');
 
 		const pid = uuidv4();
-		room.players.push({ id: socket.id, persistentId: pid, username, lives: room.initialLives, hand: [], tricks: 0, isSpectator: false });
+		room.players.push({ id: socket.id, persistentId: pid, username, lives: room.initialLives, hand: [], tricks: 0, isSpectator: false, online: true });
 		socket.join(roomCode);
 
 		socket.emit('sessionSaved', { roomCode, persistentId: pid });
@@ -161,6 +161,7 @@ io.on('connection', (socket) => {
 	    // update socket
 	    const oldSocketId = player.id;
 	    player.id = socket.id;
+	    player.online = true;
 	    
 	    if (room.hostId === oldSocketId)
 	    {
@@ -170,8 +171,8 @@ io.on('connection', (socket) => {
 	    socket.join(roomCode);
 	    console.log(`Player ${player.username} reconnected`);
 
-	    // update client of such player
-	    socket.emit('updateState', getPublicState(room, socket.id));
+	    // update clients
+	    broadcastUpdate(room);
 	});
 
 	socket.on('startGame', ({ roomCode }) => {
@@ -252,9 +253,16 @@ io.on('connection', (socket) => {
 	});
 
 	socket.on('disconnect', () => {
-		// Handle disconnection (simple logic: remove if lobby, else keep as ghost/wait)
-		// For simplicity in this demo, we won't handle complex reconnection logic
 		console.log('Client disconnected:', socket.id);
+
+		Object.values(rooms).forEach(room => {
+	        const player = room.players.find(p => p.id === socket.id);
+	        if (player)
+	        {
+	            player.online = false;
+	            broadcastUpdate(room);
+	        }
+    	});
 	});
 });
 
