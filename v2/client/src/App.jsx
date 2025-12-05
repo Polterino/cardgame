@@ -51,6 +51,19 @@ function App() {
   const isMyTurn = gameState ? gameState.currentTurn === myIndex : false;
   const isActionPhase = gameState ? ['BIDDING', 'PLAYING'].includes(gameState.phase) : false;
 
+  const orderedOpponents = [];
+  if (gameState && myIndex !== -1) {
+    const totalPlayers = gameState.players.length;
+    for (let i = 1; i < totalPlayers; i++)
+    {
+        const nextIndex = (myIndex + i) % totalPlayers;
+        orderedOpponents.push(gameState.players[nextIndex]);
+    }
+  } else if (gameState)
+  {
+    orderedOpponents.push(...gameState.players);
+  }
+
   const getCardAsset = (suit, value) => {
 	  if (!suit || !value) return RETRO_PATH;
 	  return CARD_PATH+`${suit.toLowerCase()}_${value.toLowerCase()}.png`;
@@ -295,7 +308,7 @@ function App() {
 
 		{/* Other Players (Top/Sides - Simplified as a row for mobile) */}
 		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:justify-around md:items-start md:px-10">
-		  {gameState.players.filter(p => p.id !== socket.id).map(p => (
+		  {orderedOpponents.map(p => (
 			<div key={p.id} className={`flex flex-col items-center p-3 rounded-xl relative transition-all ${gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400 shadow-lg scale-105' : 'bg-green-900/40'}`}>
 			    
 			    {/* LIVES BADGE (Round Summary) */}
