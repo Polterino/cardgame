@@ -367,7 +367,7 @@ function resolveTrick(room) {
 			room.currentRoundCards = [];
 			// Winner starts next trick
 			room.currentTurn = room.players.findIndex(p => p.persistentId === winnerPersistentId);
-			room.notification = `Next turn: ${room.players[room.currentTurn].username}`;
+			room.notification = `Now ${room.players[room.currentTurn].username} starts`;
 			broadcastUpdate(room);
 		}
 	}, NEXT_HAND_TIMEOUT);

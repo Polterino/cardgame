@@ -502,7 +502,7 @@ function App() {
 					  <span className="text-xl">{p.username}</span>
 					</div>
 					<div className="text-xl font-bold">
-					  {p.lives <= 0 ? 'Eliminated' : `${p.lives} Lives`}
+					  {`${p.lives} Lives`}
 					</div>
 				  </div>
 				))
