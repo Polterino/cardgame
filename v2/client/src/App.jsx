@@ -5,6 +5,26 @@ import html2canvas from 'html2canvas';
 const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
 const socket = io(socketUrl);
 
+// --- ICONS COMPONENTS ---
+const HeartIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+  </svg>
+);
+
+const TargetIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.765-1.272 5.219 0a.75.75 0 01-1.129 1.129zM12 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" clipRule="evenodd" />
+  </svg>
+);
+
+const CardsIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path style={{fill:"currentColor"}} d="M16.5 6a3 3 0 00-3-3H6a3 3 0 00-3 3v7.5a3 3 0 003 3v-6A4.5 4.5 0 0110.5 6h6z" />
+    <path style={{fill:"currentColor"}} d="M18 9a3 3 0 013 3v7.5a3 3 0 01-3 3H10.5a3 3 0 01-3-3V12a3 3 0 013-3H18z" />
+  </svg>
+);
+
 function App() {
   // States
   const [connected, setConnected] = useState(false);
@@ -276,42 +296,52 @@ function App() {
 		{/* Other Players (Top/Sides - Simplified as a row for mobile) */}
 		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:justify-around md:items-start md:px-10">
 		  {gameState.players.filter(p => p.id !== socket.id).map(p => (
-			<div key={p.id} className={`flex flex-col items-center p-2 rounded relative ${gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400' : 'bg-green-900/50'}`}>
-				{/* LIVES BADGE */}
+			<div key={p.id} className={`flex flex-col items-center p-3 rounded-xl relative transition-all ${gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400 shadow-lg scale-105' : 'bg-green-900/40'}`}>
+			    
+			    {/* LIVES BADGE (Round Summary) */}
 			    {roundSummary?.find(s => s.persistentId === p.persistentId) && (
-			        <div className={`absolute -top-4 -right-2 z-50 px-2 py-1 text-xs rounded-full font-bold shadow-lg animate-bounce ${roundSummary.find(s => s.persistentId === p.persistentId).livesLost === 0 ? 'bg-green-500' : 'bg-red-600'}`}>
+			        <div className={`absolute -top-3 -right-3 z-50 px-3 py-1 text-sm rounded-full font-bold shadow-xl animate-bounce border-2 border-white ${roundSummary.find(s => s.persistentId === p.persistentId).livesLost === 0 ? 'bg-green-500' : 'bg-red-600'}`}>
 			            {roundSummary.find(s => s.persistentId === p.persistentId).livesLost === 0 ? 'SAFE' : `-${roundSummary.find(s => s.persistentId === p.persistentId).livesLost}`}
 			        </div>
 			    )}
-			  <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center mb-1">
-				{p.username[0].toUpperCase()}
-			  </div>
-			  <span className="text-xs">{p.username}</span>
-			  <div className="flex text-xs gap-1 mt-1">
-				<span>❤️ {p.lives}</span>
-				<span>🎯 {gameState.bids[p.persistentId] !== undefined ? gameState.bids[p.persistentId] : '-'}</span>
-				<span>✊ {p.tricks}</span>
-			  </div>
-			  <div className="mt-2 flex -space-x-8"> {/* -space-x-8 to overlap cards */}
-			    {p.hand.map((c, i) => {
-			        // Blind Round (only 1 card per player)
-			        const isBlindRound = gameState.cardsPerHand === 1;
-			        const assetSrc = isBlindRound 
-			            ? getCardAsset(c.suit, c.value) 
-			            : RETRO_PATH;
 
+			    {/* Avatar & Name */}
+			    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border-2 border-green-600/50 flex items-center justify-center mb-1 shadow-md">
+			        <span className="text-lg font-bold text-gray-200">{p.username[0].toUpperCase()}</span>
+			    </div>
+			    <span className="text-sm font-semibold text-white drop-shadow-md mb-2">{p.username}</span>
+
+			    {/* NEW STATS ROW */}
+			    <div className="flex items-center gap-3 bg-black/40 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-inner">
+			        {/* Vite */}
+			        <div className="flex items-center gap-1" title="Vite">
+			            <HeartIcon className="w-4 h-4 text-red-500 drop-shadow-sm" />
+			            <span className="font-bold text-white">{p.lives}</span>
+			        </div>
+			        {/* Bid */}
+			        <div className="flex items-center gap-1 border-l border-white/20 pl-3" title="Scommessa">
+			            <TargetIcon className="w-4 h-4 text-blue-400 drop-shadow-sm" />
+			            <span className="font-bold text-white">{gameState.bids[p.persistentId] !== undefined ? gameState.bids[p.persistentId] : '-'}</span>
+			        </div>
+			        {/* Presi */}
+			        <div className="flex items-center gap-1 border-l border-white/20 pl-3" title="Pigli">
+			            <CardsIcon className="w-4 h-4 text-yellow-400 drop-shadow-sm" />
+			            <span className="font-bold text-white">{p.tricks}</span>
+			        </div>
+			    </div>
+
+			    {/* Cards Back */}
+			    <div className="mt-3 flex -space-x-8"> 
+			    {p.hand.map((c, i) => {
+			        const isBlindRound = gameState.cardsPerHand === 1;
+			        const assetSrc = isBlindRound ? getCardAsset(c.suit, c.value) : RETRO_PATH;
 			        return (
-			            <img 
-			                key={i} 
-			                src={assetSrc}
-			                alt="card"
-			                className="w-16 h-auto shadow-md rounded-md"
-			            />
+			            <img key={i} src={assetSrc} alt="card" className="w-14 h-auto shadow-md rounded border border-white/10" />
 			        );
 			    })}
-			  </div>
+			    </div>
 			</div>
-		  ))}
+			))}
 		</div>
 
 		{/* Center: Played Cards */}
@@ -415,49 +445,80 @@ function App() {
 		)}
 
 		{/* My Hand */}
-		<div className="mt-auto w-full flex flex-col items-center">
-			
-		  <div className="relative flex justify-between px-4 mb-2 text-sm text-green-200 w-full md:w-full md:px-20 md:text-lg">
-			<span>Lives: {me.lives}</span>
-			{roundSummary?.find(s => s.persistentId === me.persistentId) && (
-			    <div className={`
-			      absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-			      px-4 py-1 rounded-full font-bold shadow-lg animate-bounce z-50 whitespace-nowrap
-			      ${roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 
-			        ? 'bg-green-500 text-white' 
-			        : 'bg-red-600 text-white border-2 border-white'}
-			    `}>
-			      {roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 
-			        ? 'SAFE' 
-			        : `-${roundSummary.find(s => s.persistentId === me.persistentId).livesLost}`}
-			    </div>
-			)}
-			<span>Bid: {gameState.bids[me.persistentId] ?? '-'} | Taken: {me.tricks}</span>
-		  </div>
-		  
-		  	<div className={`flex justify-center -space-x-4 pb-4 overflow-x-auto min-h-[140px] w-full md:-space-x-12 md:pb-8 md:min-h-[200px] transition-all duration-500 rounded-xl
-              ${isMyTurn && isActionPhase ? 'bg-yellow-500/10 shadow-[0_0_30px_rgba(234,179,8,0.2)]' : ''}
-          	`}>
-  			{me.hand.map((card, idx) => {
-			    const isPlayable = gameState.phase === 'PLAYING' && isMyTurn;
-			    const isBlind = gameState.cardsPerHand === 1; // Blind round
-			    const isSelected = selectedCardId === card.id;
+		<div className="mt-auto w-full flex flex-col items-center pb-2">
+    
+		    {/* stats bar */}
+		    <div className="relative mb-4 bg-green-900/80 backdrop-blur-md border border-green-500/30 px-6 py-2 rounded-full shadow-2xl flex items-center gap-8 md:gap-16">
+		        
+		        {/* lives lost */}
+		        {roundSummary?.find(s => s.persistentId === me.persistentId) && (
+		            <div className={`
+		                absolute left-1/2 -top-5 -translate-x-1/2
+		                px-4 py-1 rounded-full font-bold shadow-[0_0_15px_rgba(0,0,0,0.5)] animate-bounce z-50 whitespace-nowrap border-2 border-white
+		                ${roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 
+		                ? 'bg-green-500 text-white' 
+		                : 'bg-red-600 text-white'}
+		            `}>
+		                {roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 
+		                ? 'SAFE' 
+		                : `-${roundSummary.find(s => s.persistentId === me.persistentId).livesLost} lives`}
+		            </div>
+		        )}
 
-			    return (
-			        <img 
-			            key={card.id || idx}
-			            src={isBlind ? RETRO_PATH : getCardAsset(card.suit, card.value)}
-			            onClick={() => isPlayable ? handleCardClick(card) : null}
-			            className={`
-                            w-24 h-auto rounded-lg shadow-xl cursor-pointer transition-transform duration-200 border-2
-                            md:w-48 md:hover:-translate-y-12
-                            ${isSelected ? '-translate-y-8 border-yellow-400 z-10 md:-translate-y-16' : 'translate-y-0 border-transparent'}
-                            ${!isPlayable ? 'opacity-90' : 'hover:-translate-y-2'}
-                        `}
-			        />
-			    );
-			})}
-		  </div>
+		        {/* Lives */}
+		        <div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
+		            <HeartIcon className="w-5 h-5 md:w-6 md:h-6 text-red-500 drop-shadow-[0_2px_4px_rgba(220,38,38,0.5)]" />
+		            <div className="text-center md:text-left leading-none">
+		                <span className="block text-[10px] text-green-200 uppercase tracking-wider font-bold">Lives</span>
+		                <span className="text-lg md:text-2xl font-black text-white">{me.lives}</span>
+		            </div>
+		        </div>
+
+		        {/* Bid */}
+		        <div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
+		            <TargetIcon className="w-5 h-5 md:w-6 md:h-6 text-blue-400 drop-shadow-[0_2px_4px_rgba(96,165,250,0.5)]" />
+		            <div className="text-center md:text-left leading-none">
+		                <span className="block text-[10px] text-green-200 uppercase tracking-wider font-bold">Bid</span>
+		                <span className="text-lg md:text-2xl font-black text-white">{gameState.bids[me.persistentId] ?? '-'}</span>
+		            </div>
+		        </div>
+
+		        {/* Taken */}
+		        <div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
+		            <CardsIcon className="w-5 h-5 md:w-6 md:h-6 text-yellow-400 drop-shadow-[0_2px_4px_rgba(250,204,21,0.5)]" />
+		            <div className="text-center md:text-left leading-none">
+		                <span className="block text-[10px] text-green-200 uppercase tracking-wider font-bold">Taken</span>
+		                <span className="text-lg md:text-2xl font-black text-white">{me.tricks}</span>
+		            </div>
+		        </div>
+		    </div>
+		    
+		    {/* CARDS CONTAINER */}
+		    <div className={`
+		        flex justify-center -space-x-4 pb-2 overflow-x-auto min-h-[120px] w-full 
+		        md:-space-x-10 md:pb-6 md:min-h-[180px] 
+		        transition-all duration-500 rounded-xl px-4
+		        ${isMyTurn && isActionPhase ? 'bg-yellow-500/5 shadow-[0_0_40px_rgba(234,179,8,0.15)]' : ''}
+		    `}>
+		    {me.hand.map((card, idx) => {
+		        const isPlayable = gameState.phase === 'PLAYING' && isMyTurn;
+		        const isBlind = gameState.cardsPerHand === 1; 
+		        const isSelected = selectedCardId === card.id;
+
+		        return (
+		            <img 
+		                key={card.id || idx}
+		                src={isBlind ? RETRO_PATH : getCardAsset(card.suit, card.value)}
+		                onClick={() => isPlayable ? handleCardClick(card) : null}
+		                className={`
+		                    w-20 h-auto rounded-lg shadow-2xl cursor-pointer transition-transform duration-200 border border-white/20 md:w-40 md:hover:-translate-y-10
+		                    ${isSelected ? '-translate-y-6 border-yellow-400 ring-2 ring-yellow-400 z-10 md:-translate-y-14' : 'translate-y-0'}
+		                    ${!isPlayable ? 'opacity-90 brightness-75' : 'hover:-translate-y-2 brightness-100'}
+		                `}
+		            />
+		        );
+		    })}
+		    </div>
 		</div>
 	  </div>
 
