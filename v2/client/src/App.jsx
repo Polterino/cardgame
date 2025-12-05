@@ -525,8 +525,10 @@ function App() {
 		    
 		    {/* CARDS CONTAINER */}
 		    <div className={`
-		        flex justify-center -space-x-4 pb-2 overflow-x-auto min-h-[120px] w-full 
-		        md:-space-x-10 md:pb-6 md:min-h-[180px] 
+		        flex justify-center -space-x-4 pb-2 overflow-x-auto w-full 
+		        pt-8 md:pt-20
+		        min-h-[150px] md:min-h-[250px]
+		        md:-space-x-10 md:pb-6 
 		        transition-all duration-500 rounded-xl px-4
 		        ${isMyTurn && isActionPhase ? 'bg-yellow-500/5 shadow-[0_0_40px_rgba(234,179,8,0.15)]' : ''}
 		    `}>
