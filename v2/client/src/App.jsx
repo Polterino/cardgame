@@ -6,6 +6,7 @@ const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
 const socket = io(socketUrl);
 
 function App() {
+  // States
   const [connected, setConnected] = useState(false);
   const [gameState, setGameState] = useState(null);
   const [username, setUsername] = useState('');
@@ -14,19 +15,36 @@ function App() {
   const [aceModeModal, setAceModeModal] = useState(null); // { card }
   const [selectedCardId, setSelectedCardId] = useState(null); // pre select cards
   const [roundSummary, setRoundSummary] = useState(null);
+  const prevTurnRef = useRef(null); // Previous turn reference
 
+  // Constants
   const CARD_PATH = "/napoletane/";
   const RETRO_CARD = "retro.jpg";
   const RETRO_PATH = CARD_PATH + RETRO_CARD;
   const STORAGE_ITEM_NAME = "game_session";
   const STORAGE_USERNAME_KEY = "game_username";
+  const ROUND_SUMMARY_TIMEOUT = 9700 // ms, timeout to show how many lives each player has lost
+
+  // Useful variables
+  const me = gameState?.players?.find(p => p.id === socket.id);
+  const myIndex = gameState ? gameState.players.findIndex(p => p.id === socket.id) : -1;
+  const isMyTurn = gameState ? gameState.currentTurn === myIndex : false;
+  const isActionPhase = gameState ? ['BIDDING', 'PLAYING'].includes(gameState.phase) : false;
 
   const getCardAsset = (suit, value) => {
 	  if (!suit || !value) return RETRO_PATH;
 	  return CARD_PATH+`${suit.toLowerCase()}_${value.toLowerCase()}.png`;
   };
 
-  // Check URL params for room code
+  const playTurnSound = () => {
+    const audioStr = "data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU";
+    const audio = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg"); 
+    audio.volume = 0.5;
+    audio.play().catch(e => console.log("Audio play blocked:", e));
+  };
+
+  
+  // Executed only one time
   useEffect(() => {
 	const params = new URLSearchParams(window.location.search);
 	const code = params.get('code');
@@ -65,13 +83,26 @@ function App() {
 
     socket.on('roundSummary', (summary) => {
 	    setRoundSummary(summary);
-	    setTimeout(() => setRoundSummary(null), 9700);
+	    setTimeout(() => setRoundSummary(null), ROUND_SUMMARY_TIMEOUT);
 	});
 
 	socket.on('error', (msg) => alert(msg));
 
 	return () => socket.off();
   }, []);
+
+  // Executed each time the turn changes
+  // Handle sounds
+  useEffect(() => {
+    if (!gameState) return;
+
+    if (isMyTurn && isActionPhase && prevTurnRef.current !== gameState.currentTurn) {
+        playTurnSound();
+    }
+    
+    // Update reference
+    prevTurnRef.current = gameState.currentTurn;
+  }, [gameState?.currentTurn, gameState?.phase]);
 
   // --- Actions ---
 
@@ -98,7 +129,6 @@ function App() {
   const handleCardClick = (card) => {
 	if (gameState.phase !== 'PLAYING') return;
 	
-	const myIndex = gameState.players.findIndex(p => p.id === socket.id);
 	if (gameState.currentTurn !== myIndex) return;
 
 	// selection
@@ -200,11 +230,22 @@ function App() {
 
   // --- In Game Components ---
 
-  const me = gameState.players.find(p => p.id === socket.id);
-  const isMyTurn = gameState.players[gameState.currentTurn].id === socket.id;
-
   return (
 	<div className="min-h-screen bg-green-800 text-white font-mono flex flex-col">
+	  {/* --- FEEDBACK highlight/sound --- */}
+	    {gameState && isMyTurn && !me.isSpectator && isActionPhase && (
+	        <>
+	            {/* Highlighting screen */}
+	            <div className="fixed inset-0 border-[6px] border-yellow-400/60 z-50 pointer-events-none animate-pulse shadow-[inset_0_0_50px_rgba(250,204,21,0.5)]"></div>
+	            
+	            {/* Banner your turn */}
+	            <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+	                <div className="bg-yellow-500 text-green-900 px-6 py-2 rounded-full font-bold text-xl shadow-xl animate-bounce border-2 border-white">
+	                    IT'S YOUR TURN!
+	                </div>
+	            </div>
+	        </>
+	    )}
 	  {/* Header */}
 	  <div className="bg-green-900 p-2 flex justify-between items-center shadow-md">
 		<div className="text-sm">
@@ -352,7 +393,8 @@ function App() {
 				let disabled = false;
 				const activePlayerCount = gameState.players.filter(p => !p.isSpectator).length;
 				const bidsMade = Object.keys(gameState.bids).length;
-				if (bidsMade === activePlayerCount - 1) {
+				if (bidsMade === activePlayerCount - 1) 
+				{
 				  const currentSum = Object.values(gameState.bids).reduce((a, b) => a + b, 0);
 				  if (currentSum + i === gameState.cardsPerHand) disabled = true;
 				}
@@ -372,7 +414,7 @@ function App() {
 		  </div>
 		)}
 
-		{/* Player Hand */}
+		{/* My Hand */}
 		<div className="mt-auto w-full flex flex-col items-center">
 			
 		  <div className="relative flex justify-between px-4 mb-2 text-sm text-green-200 w-full md:w-full md:px-20 md:text-lg">
@@ -393,7 +435,10 @@ function App() {
 			<span>Bid: {gameState.bids[me.persistentId] ?? '-'} | Taken: {me.tricks}</span>
 		  </div>
 		  
-		  <div className="flex justify-center -space-x-4 pb-4 overflow-x-auto min-h-[140px] w-full md:-space-x-12 md:pb-8 md:min-h-[200px]">			{me.hand.map((card, idx) => {
+		  	<div className={`flex justify-center -space-x-4 pb-4 overflow-x-auto min-h-[140px] w-full md:-space-x-12 md:pb-8 md:min-h-[200px] transition-all duration-500 rounded-xl
+              ${isMyTurn && isActionPhase ? 'bg-yellow-500/10 shadow-[0_0_30px_rgba(234,179,8,0.2)]' : ''}
+          	`}>
+  			{me.hand.map((card, idx) => {
 			    const isPlayable = gameState.phase === 'PLAYING' && isMyTurn;
 			    const isBlind = gameState.cardsPerHand === 1; // Blind round
 			    const isSelected = selectedCardId === card.id;

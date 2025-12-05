@@ -20,8 +20,8 @@ const io = new Server(server, {
 const SUITS = ['Bastoni', 'Spade', 'Coppe', 'Denari']; // 0, 1, 2, 3 (Denari is highest)
 const VALUES = ['Asso', '2', '3', '4', '5', '6', '7', 'Fante', 'Cavallo', 'Re'];
 
-const NEXT_HAND_TIMEOUT = 5000; // milliseconds
-const NEXT_ROUND_TIMEOUT = 10000; // consider that players have already waited NEXT_HAND_TIMEOUT seconds
+const NEXT_HAND_TIMEOUT = 5000; // ms, timeout after each hand
+const NEXT_ROUND_TIMEOUT = 10000; // ms, timeout after each round to count how many lives have been lost. Consider that players have already waited NEXT_HAND_TIMEOUT seconds
 
 const getCardRank = (value) => VALUES.indexOf(value);
 const getSuitRank = (suit) => SUITS.indexOf(suit);
