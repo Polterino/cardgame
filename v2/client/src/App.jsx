@@ -31,7 +31,7 @@ function App() {
   const [gameState, setGameState] = useState(null);
   const [username, setUsername] = useState('');
   const [roomCodeInput, setRoomCodeInput] = useState('');
-  const [livesInput, setLivesInput] = useState(3);
+  const [livesInput, setLivesInput] = useState(5);
   const [aceModeModal, setAceModeModal] = useState(null); // { card }
   const [selectedCardId, setSelectedCardId] = useState(null); // pre select cards
   const [roundSummary, setRoundSummary] = useState(null);
