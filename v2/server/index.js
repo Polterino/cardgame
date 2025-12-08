@@ -19,7 +19,7 @@ const io = new Server(server, {
 
 const SUITS = ['Bastoni', 'Spade', 'Coppe', 'Denari']; // 0, 1, 2, 3 (Denari is highest)
 const VALUES = ['Asso', '2', '3', '4', '5', '6', '7', 'Fante', 'Cavallo', 'Re'];
-
+const MIN_NUMBER_OF_PLAYERS = 2;
 const NEXT_HAND_TIMEOUT = 5000; // ms, timeout after each hand
 const NEXT_ROUND_TIMEOUT = 10000; // ms, timeout after each round to count how many lives have been lost. Consider that players have already waited NEXT_HAND_TIMEOUT seconds
 
@@ -143,9 +143,7 @@ io.on('connection', (socket) => {
 		socket.emit('sessionSaved', { roomCode, persistentId: pid });
 		
 		// Broadcast update to everyone individually to mask cards correctly
-		room.players.forEach(p => {
-			io.to(p.id).emit('updateState', getPublicState(room, p.id));
-		});
+		broadcastUpdate(room);
 	});
 
 	socket.on('rejoinGame', ({ roomCode, persistentId }) => {
@@ -229,7 +227,7 @@ io.on('connection', (socket) => {
 	socket.on('startGame', ({ roomCode }) => {
 		const room = rooms[roomCode];
 		if (!room || room.hostId !== socket.id) return;
-		if (room.players.length < 3) return socket.emit('error', 'Need at least 3 players');
+		if (room.players.length < MIN_NUMBER_OF_PLAYERS) return socket.emit('error', 'Need at least', MIN_NUMBER_OF_PLAYERS, ' players');
 
 		startRound(room);
 	});
@@ -330,7 +328,7 @@ function startRound(room)
 	
 	// Deal cards
 	const activePlayers = room.players.filter(p => !p.isSpectator);
-	if (activePlayers.length <= 2)
+	if (activePlayers.length < MIN_NUMBER_OF_PLAYERS)
 	{
 		room.phase = 'GAME_OVER';
 		broadcastUpdate(room);
@@ -445,7 +443,8 @@ function resolveTrick(room)
 	}, NEXT_HAND_TIMEOUT);
 }
 
-function isBetterCard(challenger, defender) {
+function isBetterCard(challenger, defender)
+{
 	// challenger is the card just played, defender is the current best card on table
 	const cCard = challenger.card;
 	const dCard = defender.card;
@@ -477,7 +476,8 @@ function isBetterCard(challenger, defender) {
 	return cValRank > dValRank;
 }
 
-function calculateScores(room) {
+function calculateScores(room)
+{
 	const roundSummary = [];
 
 	room.players.forEach(p => {
@@ -513,7 +513,7 @@ function calculateScores(room) {
 		if (!rooms[room.code]) return;
 		const survivors = room.players.filter(p => !p.isSpectator);
 		
-		if (survivors.length <= 2) {
+		if (survivors.length < MIN_NUMBER_OF_PLAYERS) {
 			// Game Over
 			room.phase = 'GAME_OVER';
 			broadcastUpdate(room);

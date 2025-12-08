@@ -64,7 +64,8 @@ function App()
 	const RETRO_PATH = CARD_PATH + RETRO_CARD;
 	const STORAGE_ITEM_NAME = "game_session";
 	const STORAGE_USERNAME_KEY = "game_username";
-	const ROUND_SUMMARY_TIMEOUT = 9700 // ms, timeout to show how many lives each player has lost
+	const ROUND_SUMMARY_TIMEOUT = 9700; // ms, timeout to show how many lives each player has lost
+	const MIN_NUMBER_OF_PLAYERS = 2;
 
 	// Useful variables
 	const me = gameState?.players?.find(p => p.id === socket.id);
@@ -532,10 +533,10 @@ function App()
 		{gameState.phase === 'LOBBY' && me.id === gameState.hostId && (
 			<button 
 			onClick={startGame}
-			disabled={gameState.players.length < 3}
+			disabled={gameState.players.length < MIN_NUMBER_OF_PLAYERS}
 			className="bg-yellow-500 hover:bg-yellow-400 text-green-900 px-8 py-3 rounded-lg font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mb-8 relative z-50"
 			>
-			Start Game ({gameState.players.length}/3+)
+			Start Game ({gameState.players.length}/{MIN_NUMBER_OF_PLAYERS}+)
 			</button>
 		)}
 
