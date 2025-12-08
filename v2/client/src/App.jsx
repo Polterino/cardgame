@@ -79,50 +79,85 @@ function App() {
   
   // Executed only one time
   useEffect(() => {
-	const params = new URLSearchParams(window.location.search);
-	const code = params.get('code');
-	if (code) setRoomCodeInput(code);
+		const params = new URLSearchParams(window.location.search);
+		const code = params.get('room_code');
+		if (code) setRoomCodeInput(code);
 
-	const savedUsername = localStorage.getItem(STORAGE_USERNAME_KEY);
-    if (savedUsername) {
+		const savedUsername = localStorage.getItem(STORAGE_USERNAME_KEY);
+    if (savedUsername)
+    {
         setUsername(savedUsername);
     }
-	
-	socket.on('connect', () => {
-		setConnected(true);
-		const savedSession = localStorage.getItem(STORAGE_ITEM_NAME);
-        if (savedSession) {
-            const { roomCode, persistentId } = JSON.parse(savedSession);
-            socket.emit('rejoinGame', { roomCode, persistentId });
-        }
-	});
+		
+		const handleConnect = () => {
+			setConnected(true);
 
-	socket.on('updateState', (state) => setGameState(state));
-	socket.on('roomCreated', (code) => {
-	  setRoomCodeInput(code);
-	  // Auto join is handled by server state update usually, 
-	  // but here the creator is already in state
-	});
+			// Automatic rejoin
+			const savedSession = localStorage.getItem(STORAGE_ITEM_NAME);
+      if (savedSession)
+      {
+          const { roomCode, persistentId } = JSON.parse(savedSession);
+          socket.emit('rejoinGame', { roomCode, persistentId });
+          return;
+      }
 
-	socket.on('sessionSaved', ({ roomCode, persistentId }) => {
-        localStorage.setItem(STORAGE_ITEM_NAME, JSON.stringify({ roomCode, persistentId }));
-    });
+      if (code)
+      {
+      		if(savedUsername)
+            // Small delay to create socket
+            setTimeout(() => socket.emit('joinRoom', { roomCode: code.toUpperCase(), username: savedUsername }), 50);
+          else
+          	alert('Can\'t join room without a username');
+      }
+		};
 
-    socket.on('resetSession', () => {
-        localStorage.removeItem(STORAGE_ITEM_NAME);
-        setGameState(null);
-        alert('Session expired or room closed.');
-    });
+		socket.on('updateState', (state) => setGameState(state));
+		socket.on('roomCreated', (code) => {
+		  setRoomCodeInput(code);
+		  // Auto join is handled by server state update usually, 
+		  // but here the creator is already in state
+		});
 
-    socket.on('roundSummary', (summary) => {
-	    setRoundSummary(summary);
-	    setTimeout(() => setRoundSummary(null), ROUND_SUMMARY_TIMEOUT);
-	});
+		socket.on('sessionSaved', ({ roomCode, persistentId }) => {
+	        localStorage.setItem(STORAGE_ITEM_NAME, JSON.stringify({ roomCode, persistentId }));
+	    });
 
-	socket.on('error', (msg) => alert(msg));
+	    socket.on('resetSession', () => {
+	        localStorage.removeItem(STORAGE_ITEM_NAME);
+	        window.history.replaceState({}, document.title, window.location.pathname); // Clean the URL
+	        setGameState(null);
+	        alert('Session expired or room closed.');
+	    });
 
-	return () => socket.off();
+	    socket.on('roundSummary', (summary) => {
+		    setRoundSummary(summary);
+		    setTimeout(() => setRoundSummary(null), ROUND_SUMMARY_TIMEOUT);
+		});
+
+		socket.on('error', (msg) => alert(msg));
+
+		socket.on('connect', handleConnect);
+    if (socket.connected)
+    {
+        handleConnect();
+    }
+
+		return () => socket.off();
   }, []);
+
+  // --- URL UPDATE ---
+  useEffect(() => {
+    if (gameState && gameState.code)
+    {
+        const url = new URL(window.location);
+        if (url.searchParams.get('room_code') !== gameState.code)
+        {
+            url.searchParams.set('room_code', gameState.code);
+            // pushState changes URL withouth refreshing the page
+            window.history.pushState({}, '', url);
+        }
+    }
+  }, [gameState?.code]);
 
   // Executed each time the turn changes
   // Handle sounds
@@ -146,13 +181,13 @@ function App() {
   };
 
   const joinRoom = () => {
-	if (!username || !roomCodeInput) return alert('Enter username and room code');
-	localStorage.setItem(STORAGE_USERNAME_KEY, username);
-	socket.emit('joinRoom', { roomCode: roomCodeInput.toUpperCase(), username });
+		if (!username || !roomCodeInput) return alert('Enter username and room code');
+		localStorage.setItem(STORAGE_USERNAME_KEY, username);
+		socket.emit('joinRoom', { roomCode: roomCodeInput.toUpperCase(), username });
   };
 
   const startGame = () => {
-	socket.emit('startGame', { roomCode: gameState.code });
+		socket.emit('startGame', { roomCode: gameState.code });
   };
 
   const returnToLobby = () => {
@@ -160,28 +195,28 @@ function App() {
   };
 
   const submitBid = (bid) => {
-	socket.emit('submitBid', { roomCode: gameState.code, bid });
+		socket.emit('submitBid', { roomCode: gameState.code, bid });
   };
 
   const handleCardClick = (card) => {
-	if (gameState.phase !== 'PLAYING') return;
-	
-	if (gameState.currentTurn !== myIndex) return;
+		if (gameState.phase !== 'PLAYING') return;
+		
+		if (gameState.currentTurn !== myIndex) return;
 
-	// selection
-	if (selectedCardId !== card.id) {
-		setSelectedCardId(card.id);
-		return; 
-	}
+		// selection
+		if (selectedCardId !== card.id) {
+			setSelectedCardId(card.id);
+			return; 
+		}
 
-	// playing cards
-	if (card.suit === 'Denari' && card.value === 'Asso') {
-		setAceModeModal(card);
-		return;
-	}
+		// playing cards
+		if (card.suit === 'Denari' && card.value === 'Asso') {
+			setAceModeModal(card);
+			return;
+		}
 
-	socket.emit('playCard', { roomCode: gameState.code, card, mode: 'normal' });
-	setSelectedCardId(null); // reset selection
+		socket.emit('playCard', { roomCode: gameState.code, card, mode: 'normal' });
+		setSelectedCardId(null); // reset selection
   };
 
 	const confirmAce = (mode) => {
@@ -196,13 +231,13 @@ function App() {
 	};
 
   const downloadScoreboard = async () => {
-	const element = document.getElementById('scoreboard');
-	const canvas = await html2canvas(element);
-	const data = canvas.toDataURL('image/png');
-	const link = document.createElement('a');
-	link.href = data;
-	link.download = 'scoreboard.png';
-	link.click();
+		const element = document.getElementById('scoreboard');
+		const canvas = await html2canvas(element);
+		const data = canvas.toDataURL('image/png');
+		const link = document.createElement('a');
+		link.href = data;
+		link.download = 'scoreboard.png';
+		link.click();
   };
 
   // --- Views ---
@@ -296,6 +331,7 @@ function App() {
 		<button 
 		    onClick={() => {
 		        localStorage.removeItem(STORAGE_ITEM_NAME);
+		        window.history.replaceState({}, document.title, window.location.pathname);
 		        window.location.reload();
 		    }}
 		    className="ml-4 text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-500"
