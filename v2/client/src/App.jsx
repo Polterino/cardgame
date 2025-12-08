@@ -13,16 +13,36 @@ const HeartIcon = ({ className }) => (
 );
 
 const TargetIcon = ({ className }) => (
-	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-		<path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.765-1.272 5.219 0a.75.75 0 01-1.129 1.129zM12 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" clipRule="evenodd" />
-	</svg>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="6" />
+    <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+  </svg>
 );
 
+/*
 const CardsIcon = ({ className }) => (
-	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-		<path style={{fill:"currentColor"}} d="M16.5 6a3 3 0 00-3-3H6a3 3 0 00-3 3v7.5a3 3 0 003 3v-6A4.5 4.5 0 0110.5 6h6z" />
-		<path style={{fill:"currentColor"}} d="M18 9a3 3 0 013 3v7.5a3 3 0 01-3 3H10.5a3 3 0 01-3-3V12a3 3 0 013-3H18z" />
-	</svg>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+
+    
+    <path d="M4 10 L12 14 L20 10 V12 L12 16 L4 12 V10 Z" opacity="0.4" />
+    
+    <path d="M4 8 L12 12 L20 8 V10 L12 14 L4 10 V8 Z" opacity="0.7" />
+    
+    <path d="M12 4 L20 8 L12 12 L4 8 Z" />
+    
+    <path d="M4 8 L12 12 V13 L4 9 Z" opacity="0.8" />
+    <path d="M20 8 L12 12 V13 L20 9 Z" opacity="0.6" />
+  </svg>
+);
+*/
+const CardsIcon = ({ className }) => (
+  <img
+    src="deck_of_cards_orange.png"
+    alt="Taken" 
+    className={className} 
+    style={{ objectFit: 'contain' }}
+  />
 );
 
 function App()
