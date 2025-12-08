@@ -27,7 +27,7 @@ const getCardRank = (value) => VALUES.indexOf(value);
 const getSuitRank = (suit) => SUITS.indexOf(suit);
 
 const getPlayerBySocket = (room, socketId) => {
-    return room.players.find(p => p.id === socketId);
+	return room.players.find(p => p.id === socketId);
 };
 
 const createDeck = () => {
@@ -90,6 +90,7 @@ const getPublicState = (room, playerId) => {
 		players: players,
 		currentTurn: room.currentTurn, // Index of player
 		currentRoundCards: room.currentRoundCards, // Cards on table
+		lastTrick: room.lastTrick,
 		cardsPerHand: room.cardsPerHand,
 		bids: room.bids,
 		hostId: room.hostId,
@@ -117,6 +118,7 @@ io.on('connection', (socket) => {
 			startPlayerIndex: 0,
 			bids: {}, // { playerId: number }
 			currentRoundCards: [], // { playerId, card, mode }
+			lastTrick: null,
 			roundHistory: [],
 			notification: 'Waiting for players...'
 		};
@@ -147,32 +149,32 @@ io.on('connection', (socket) => {
 	});
 
 	socket.on('rejoinGame', ({ roomCode, persistentId }) => {
-	    const room = rooms[roomCode];
-	    if (!room) {
-	        // if room doesn't exist anymore
-	        return socket.emit('resetSession'); 
-	    }
+		const room = rooms[roomCode];
+		if (!room) {
+			// if room doesn't exist anymore
+			return socket.emit('resetSession'); 
+		}
 
-	    const player = room.players.find(p => p.persistentId === persistentId);
-	    if (!player) {
-	        return socket.emit('resetSession');
-	    }
+		const player = room.players.find(p => p.persistentId === persistentId);
+		if (!player) {
+			return socket.emit('resetSession');
+		}
 
-	    // update socket
-	    const oldSocketId = player.id;
-	    player.id = socket.id;
-	    player.online = true;
-	    
-	    if (room.hostId === oldSocketId)
-	    {
+		// update socket
+		const oldSocketId = player.id;
+		player.id = socket.id;
+		player.online = true;
+		
+		if (room.hostId === oldSocketId)
+		{
 			room.hostId = socket.id;
-	    }
+		}
 
-	    socket.join(roomCode);
-	    console.log(`Player ${player.username} reconnected`);
+		socket.join(roomCode);
+		console.log(`Player ${player.username} reconnected`);
 
-	    // update clients
-	    broadcastUpdate(room);
+		// update clients
+		broadcastUpdate(room);
 	});
 
 	// Called after a match, players can restart the same lobby
@@ -237,10 +239,10 @@ io.on('connection', (socket) => {
 		if (!room || room.phase !== 'BIDDING') return;
 		
 		const player = getPlayerBySocket(room, socket.id);
-    	if (!player) return;
+		if (!player) return;
 
 		const playerIndex = room.players.findIndex(p => p.persistentId === player.persistentId);
-    	if (playerIndex !== room.currentTurn) return;
+		if (playerIndex !== room.currentTurn) return;
 
 		// Validation
 		if (bid < 0 || bid > room.cardsPerHand) return;
@@ -264,10 +266,10 @@ io.on('connection', (socket) => {
 		if (!room || room.phase !== 'PLAYING') return;
 
 		const player = getPlayerBySocket(room, socket.id);
-	    if (!player) return;
+		if (!player) return;
 
-	    const playerIndex = room.players.findIndex(p => p.persistentId === player.persistentId);
-	    if (playerIndex !== room.currentTurn) return;
+		const playerIndex = room.players.findIndex(p => p.persistentId === player.persistentId);
+		if (playerIndex !== room.currentTurn) return;
 
 		// Remove card from hand
 		const cardIndex = player.hand.findIndex(c => c.id === card.id);
@@ -279,22 +281,23 @@ io.on('connection', (socket) => {
 		let actualMode = mode;
 		if (room.cardsPerHand === 1 && realCard.suit === 'Denari' && realCard.value === 'Asso')
 		{
-            const playerBid = room.bids[player.persistentId];
-            
-            if (playerBid === 1) {
-                actualMode = 'high';
-            }
-            else {
-                actualMode = 'low';
-            }
-        }
+			const playerBid = room.bids[player.persistentId];
+			
+			if (playerBid === 1) {
+				actualMode = 'high';
+			}
+			else {
+				actualMode = 'low';
+			}
+		}
 
 
 		room.currentRoundCards.push({ playerId: player.persistentId, card: realCard, mode: actualMode });
 
 		// Check if everyone played
 		const activePlayers = room.players.filter(p => !p.isSpectator);
-		if (room.currentRoundCards.length === activePlayers.length) {
+		if (room.currentRoundCards.length === activePlayers.length)
+		{
 			resolveTrick(room);
 		} else {
 			advanceTurn(room);
@@ -305,27 +308,30 @@ io.on('connection', (socket) => {
 		console.log('Client disconnected:', socket.id);
 
 		Object.values(rooms).forEach(room => {
-	        const player = room.players.find(p => p.id === socket.id);
-	        if (player)
-	        {
-	            player.online = false;
-	            broadcastUpdate(room);
-	        }
-    	});
+			const player = room.players.find(p => p.id === socket.id);
+			if (player)
+			{
+				player.online = false;
+				broadcastUpdate(room);
+			}
+		});
 	});
 });
 
 // --- Game Logic Functions ---
 
-function startRound(room) {
+function startRound(room)
+{
 	room.phase = 'BIDDING';
 	room.deck = shuffleDeck(createDeck());
 	room.bids = {};
 	room.currentRoundCards = [];
+	//room.lastTrick = null;
 	
 	// Deal cards
 	const activePlayers = room.players.filter(p => !p.isSpectator);
-	if (activePlayers.length <= 2) {
+	if (activePlayers.length <= 2)
+	{
 		room.phase = 'GAME_OVER';
 		broadcastUpdate(room);
 		return;
@@ -353,7 +359,8 @@ function startRound(room) {
 	broadcastUpdate(room);
 }
 
-function advanceTurn(room) {
+function advanceTurn(room)
+{
 	// Find next non-spectator player
 	let nextIndex = (room.currentTurn + 1) % room.players.length;
 	while(room.players[nextIndex].isSpectator) {
@@ -362,7 +369,8 @@ function advanceTurn(room) {
 	room.currentTurn = nextIndex;
 
 	// Check if Bidding phase is over
-	if (room.phase === 'BIDDING') {
+	if (room.phase === 'BIDDING')
+	{
 		const activeCount = room.players.filter(p => !p.isSpectator).length;
 		if (Object.keys(room.bids).length === activeCount) {
 			room.phase = 'PLAYING';
@@ -379,7 +387,8 @@ function advanceTurn(room) {
 	broadcastUpdate(room);
 }
 
-function resolveTrick(room) {
+function resolveTrick(room)
+{
 	// Calculate winner
 	// Logic: Highest Suit (Denari > Coppe > Spade > Bastoni) wins over different suits
 	// If same suit, value comparison
@@ -389,7 +398,8 @@ function resolveTrick(room) {
 	let winningCardObj = null;
 
 	room.currentRoundCards.forEach((play) => {
-		if (!winningCardObj) {
+		if (!winningCardObj)
+		{
 			winningCardObj = play;
 			winnerPersistentId = play.playerId;
 			return;
@@ -398,7 +408,8 @@ function resolveTrick(room) {
 		const current = play;
 		const best = winningCardObj;
 
-		if (isBetterCard(current, best)) {
+		if (isBetterCard(current, best))
+		{
 			winningCardObj = current;
 			winnerPersistentId = current.playerId;
 		}
@@ -410,6 +421,10 @@ function resolveTrick(room) {
 	
 	// Notification
 	room.notification = `${winner.username} takes the trick!`;
+	room.lastTrick = {
+		cards: [...room.currentRoundCards],
+		winnerId: winnerPersistentId
+	};
 	broadcastUpdate(room);
 
 	setTimeout(() => {
@@ -477,9 +492,9 @@ function calculateScores(room) {
 		const diff = Math.abs(bid - tricks);
 
 		roundSummary.push({
-            persistentId: p.persistentId,
-            livesLost: diff
-        });
+			persistentId: p.persistentId,
+			livesLost: diff
+		});
 
 		p.lives -= diff;
 		
@@ -490,12 +505,12 @@ function calculateScores(room) {
 
 	// 1. send result to clients
 	io.to(room.code).emit('roundSummary', roundSummary);
-    room.notification = "Round ended. Checking lives...";
-    broadcastUpdate(room);
+	room.notification = "Round ended. Checking lives...";
+	broadcastUpdate(room);
 
-    // 2. wait and then show animation
-    setTimeout(() => {
-        if (!rooms[room.code]) return;
+	// 2. wait and then show animation
+	setTimeout(() => {
+		if (!rooms[room.code]) return;
 		const survivors = room.players.filter(p => !p.isSpectator);
 		
 		if (survivors.length <= 2) {
@@ -527,5 +542,5 @@ function broadcastUpdate(room) {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server listening on port ${PORT}`);
+	console.log(`Server listening on port ${PORT}`);
 });
