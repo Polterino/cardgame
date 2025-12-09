@@ -13,36 +13,36 @@ const HeartIcon = ({ className }) => (
 );
 
 const TargetIcon = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-    <circle cx="12" cy="12" r="10" />
-    <circle cx="12" cy="12" r="6" />
-    <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
-  </svg>
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+		<circle cx="12" cy="12" r="10" />
+		<circle cx="12" cy="12" r="6" />
+		<circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+	</svg>
 );
 
 /*
 const CardsIcon = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
 
-    
-    <path d="M4 10 L12 14 L20 10 V12 L12 16 L4 12 V10 Z" opacity="0.4" />
-    
-    <path d="M4 8 L12 12 L20 8 V10 L12 14 L4 10 V8 Z" opacity="0.7" />
-    
-    <path d="M12 4 L20 8 L12 12 L4 8 Z" />
-    
-    <path d="M4 8 L12 12 V13 L4 9 Z" opacity="0.8" />
-    <path d="M20 8 L12 12 V13 L20 9 Z" opacity="0.6" />
-  </svg>
+		
+		<path d="M4 10 L12 14 L20 10 V12 L12 16 L4 12 V10 Z" opacity="0.4" />
+		
+		<path d="M4 8 L12 12 L20 8 V10 L12 14 L4 10 V8 Z" opacity="0.7" />
+		
+		<path d="M12 4 L20 8 L12 12 L4 8 Z" />
+		
+		<path d="M4 8 L12 12 V13 L4 9 Z" opacity="0.8" />
+		<path d="M20 8 L12 12 V13 L20 9 Z" opacity="0.6" />
+	</svg>
 );
 */
 const CardsIcon = ({ className }) => (
-  <img
-    src="deck_of_cards_orange.png"
-    alt="Taken" 
-    className={className} 
-    style={{ objectFit: 'contain' }}
-  />
+	<img
+		src="deck_of_cards_orange.png"
+		alt="Taken" 
+		className={className} 
+		style={{ objectFit: 'contain' }}
+	/>
 );
 
 function App()
@@ -347,37 +347,37 @@ function App()
 			)}
 		{/* Header */}
 		<div className="bg-green-900 h-14 px-4 flex justify-between items-center shadow-md w-full z-50 relative shrink-0">
-        
-        {/* Room Code */}
-        <div className="text-xs md:text-sm flex flex-col md:flex-row md:gap-2">
-          <span className="opacity-70">Room:</span>
-          <span className="text-yellow-400 font-bold tracking-wider">{gameState.code}</span>
-        </div>
+				
+				{/* Room Code */}
+				<div className="text-xs md:text-sm flex flex-col md:flex-row md:gap-2">
+					<span className="opacity-70">Room:</span>
+					<span className="text-yellow-400 font-bold tracking-wider">{gameState.code}</span>
+				</div>
 
-        {/* Notifications and match infos */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center w-3/5">
-            
-            <div className="text-[10px] text-green-400 font-mono uppercase tracking-widest leading-tight">
-                {gameState.phase} • {gameState.cardsPerHand} Cards
-            </div>
+				{/* Notifications and match infos */}
+				<div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center w-3/5">
+						
+						<div className="text-[10px] text-green-400 font-mono uppercase tracking-widest leading-tight">
+								{gameState.phase} • {gameState.cardsPerHand} Cards
+						</div>
 
-            <div className="text-xs md:text-sm font-bold text-white text-center truncate w-full animate-pulse drop-shadow-md">
-                {gameState.notification || "Waiting..."}
-            </div>
-        </div>
+						<div className="text-xs md:text-sm font-bold text-white text-center truncate w-full animate-pulse drop-shadow-md">
+								{gameState.notification || "Waiting..."}
+						</div>
+				</div>
 
-        {/* Exit Button */}
-        <button 
-            onClick={() => {
-                localStorage.removeItem(STORAGE_ITEM_NAME);
-                window.history.replaceState({}, document.title, window.location.pathname);
-                window.location.reload();
-            }}
-            className="text-[10px] md:text-xs bg-red-600/80 hover:bg-red-500 px-3 py-1.5 rounded text-white font-bold transition-colors"
-        >
-            Exit session
-        </button>
-      </div>
+				{/* Exit Button */}
+				<button 
+						onClick={() => {
+								localStorage.removeItem(STORAGE_ITEM_NAME);
+								window.history.replaceState({}, document.title, window.location.pathname);
+								window.location.reload();
+						}}
+						className="text-[10px] md:text-xs bg-red-600/80 hover:bg-red-500 px-3 py-1.5 rounded text-white font-bold transition-colors"
+				>
+						Exit session
+				</button>
+			</div>
 
 		{/* Main Table Area */}
 		<div className="flex-1 flex flex-col items-center justify-between p-4 relative w-full h-full">
@@ -499,44 +499,44 @@ function App()
 		</div>
 
 		{/* --- LAST TRICK DISPLAY --- */}
-        {gameState.lastTrick && gameState.lastTrick.cards.length > 0 && (
-            <div className="absolute bottom-40 left-2 md:bottom-10 md:left-10 z-20 flex flex-col items-start opacity-80 hover:opacity-100 transition-opacity">
-                
-                <span className="text-[10px] md:text-xs text-green-300 font-bold uppercase tracking-widest mb-1 bg-black/40 px-2 rounded">
-                    Last Hand
-                </span>
+				{gameState.lastTrick && gameState.lastTrick.cards.length > 0 && (
+						<div className="absolute bottom-40 left-2 md:bottom-10 md:left-10 z-20 flex flex-col items-start opacity-80 hover:opacity-100 transition-opacity">
+								
+								<span className="text-[10px] md:text-xs text-green-300 font-bold uppercase tracking-widest mb-1 bg-black/40 px-2 rounded">
+										Last Hand
+								</span>
 
-                <div className="flex -space-x-2 md:space-x-2 bg-black/40 p-2 rounded-xl backdrop-blur-sm border border-white/10">
-                    {gameState.lastTrick.cards.map((play, idx) => {
-                        const playerIndex = gameState.players.findIndex(p => p.persistentId === play.playerId);
-                        if (playerIndex === -1) return null;
-                        const playerName = gameState.players[playerIndex].username;
-                        const isWinner = play.playerId === gameState.lastTrick.winnerId;
+								<div className="flex -space-x-2 md:space-x-2 bg-black/40 p-2 rounded-xl backdrop-blur-sm border border-white/10">
+										{gameState.lastTrick.cards.map((play, idx) => {
+												const playerIndex = gameState.players.findIndex(p => p.persistentId === play.playerId);
+												if (playerIndex === -1) return null;
+												const playerName = gameState.players[playerIndex].username;
+												const isWinner = play.playerId === gameState.lastTrick.winnerId;
 
-                        return (
-                            <div key={idx} className="flex flex-col items-center">
-                                <img 
-                                    src={getCardAsset(play.card?.suit, play.card?.value)} 
-                                    alt="card"
-                                    className={`
-                                        w-10 h-auto md:w-16 rounded shadow-lg
-                                        ${isWinner ? 'ring-2 ring-yellow-400 scale-110 z-10' : 'opacity-80 scale-90 grayscale-[0.3]'}
-                                        transition-all duration-300
-                                    `}
-                                />
-                                
-                                <span className={`
-                                    text-[8px] md:text-[10px] mt-1 max-w-[50px] truncate text-center
-                                    ${isWinner ? 'text-yellow-400 font-bold' : 'text-gray-400'}
-                                `}>
-                                    {playerName}
-                                </span>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        )}
+												return (
+														<div key={idx} className="flex flex-col items-center">
+																<img 
+																		src={getCardAsset(play.card?.suit, play.card?.value)} 
+																		alt="card"
+																		className={`
+																				w-10 h-auto md:w-16 rounded shadow-lg
+																				${isWinner ? 'ring-2 ring-yellow-400 scale-110 z-10' : 'opacity-80 scale-90 grayscale-[0.3]'}
+																				transition-all duration-300
+																		`}
+																/>
+																
+																<span className={`
+																		text-[8px] md:text-[10px] mt-1 max-w-[50px] truncate text-center
+																		${isWinner ? 'text-yellow-400 font-bold' : 'text-gray-400'}
+																`}>
+																		{playerName}
+																</span>
+														</div>
+												);
+										})}
+								</div>
+						</div>
+				)}
 
 		{/* Player Controls (Lobby) */}
 		{gameState.phase === 'LOBBY' && me.id === gameState.hostId && (
@@ -555,26 +555,26 @@ function App()
 			<h3 className="mb-2 font-bold text-yellow-400">Choose your bid</h3>
 			<div className="flex gap-2 flex-wrap justify-center">
 				{[...Array(gameState.cardsPerHand + 1)].map((_, i) => {
-				// Check Restriction
-				let disabled = false;
-				const activePlayerCount = gameState.players.filter(p => !p.isSpectator).length;
-				const bidsMade = Object.keys(gameState.bids).length;
-				if (bidsMade === activePlayerCount - 1) 
-				{
-					const currentSum = Object.values(gameState.bids).reduce((a, b) => a + b, 0);
-					if (currentSum + i === gameState.cardsPerHand) disabled = true;
-				}
-				
-				return (
-					<button
-					key={i}
-					onClick={() => submitBid(i)}
-					disabled={disabled}
-					className={`w-10 h-10 rounded font-bold ${disabled ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
-					>
-					{i}
-					</button>
-				);
+					// Check Restriction
+					let disabled = false;
+					const activePlayerCount = gameState.players.filter(p => !p.isSpectator).length;
+					const bidsMade = Object.keys(gameState.bids).length;
+					if (bidsMade === activePlayerCount - 1) 
+					{
+						const currentSum = Object.values(gameState.bids).reduce((a, b) => a + b, 0);
+						if (currentSum + i === gameState.cardsPerHand) disabled = true;
+					}
+					
+					return (
+						<button
+						key={i}
+						onClick={() => submitBid(i)}
+						disabled={disabled}
+						className={`w-10 h-10 rounded font-bold ${disabled ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+						>
+						{i}
+						</button>
+					);
 				})}
 			</div>
 			</div>
@@ -584,7 +584,19 @@ function App()
 		<div className="mt-auto w-full flex flex-col items-center pb-2">
 		
 				{/* stats bar */}
-				<div className="relative mb-4 bg-green-900/80 backdrop-blur-md border border-green-500/30 px-6 py-2 rounded-full shadow-2xl flex items-center gap-8 md:gap-16">
+				<div className={`
+						relative 
+						/* negative margin */
+						-mb-10 md:-mb-16 
+					
+						z-20
+
+						bg-green-900/90 backdrop-blur-md border border-green-500/30 
+						px-4 py-1 md:px-6 md:py-2 
+						rounded-full shadow-2xl flex items-center gap-4 md:gap-16
+
+						scale-90 origin-bottom
+				`}>
 						
 						{/* lives lost */}
 						{roundSummary?.find(s => s.persistentId === me.persistentId) && (
@@ -597,7 +609,7 @@ function App()
 								`}>
 										{roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 
 										? 'SAFE' 
-										: `-${roundSummary.find(s => s.persistentId === me.persistentId).livesLost} lives`}
+										: `-${roundSummary.find(s => s.persistentId === me.persistentId).livesLost}`}
 								</div>
 						)}
 

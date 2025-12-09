@@ -103,6 +103,20 @@ io.on('connection', (socket) => {
 	console.log('New client connected:', socket.id);
 
 	socket.on('createRoom', ({ username, initialLives }) => {
+		const livesString = String(initialLives);
+		const isOnlyDigits = /^\d+$/.test(livesString);
+
+		if (!isOnlyDigits)
+		{
+			socket.emit('error', 'Please enter a valid number (no letters)');
+			return;
+		}
+		if(parseInt(livesString) < 1)
+		{
+			socket.emit('error', 'Number of lives must be positive');
+			return;
+		}
+
 		const roomCode = uuidv4().slice(0, 6).toUpperCase();
 		const pid = uuidv4(); // persistent ID
 
