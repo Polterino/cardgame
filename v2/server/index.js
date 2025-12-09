@@ -123,7 +123,7 @@ io.on('connection', (socket) => {
 		rooms[roomCode] = {
 			code: roomCode,
 			hostId: socket.id,
-			players: [{ id: socket.id, persistentId: pid, username, lives: parseInt(initialLives), hand: [], tricks: 0, isSpectator: false, online: true }],
+			players: [{ id: socket.id, persistentId: pid, username, lives: parseInt(initialLives), hand: [], tricks: 0, isSpectator: false, online: true, assoDenariCount: 0, totalTricks: 0, maxLivesLost: 0 }],
 			phase: 'LOBBY',
 			initialLives: parseInt(initialLives),
 			cardsPerHand: 5,
@@ -152,7 +152,7 @@ io.on('connection', (socket) => {
 		if (room.phase !== 'LOBBY') return socket.emit('error', 'Game already started');
 
 		const pid = uuidv4();
-		room.players.push({ id: socket.id, persistentId: pid, username, lives: room.initialLives, hand: [], tricks: 0, isSpectator: false, online: true });
+		room.players.push({ id: socket.id, persistentId: pid, username, lives: room.initialLives, hand: [], tricks: 0, isSpectator: false, online: true, assoDenariCount: 0, totalTricks: 0, maxLivesLost: 0 });
 		socket.join(roomCode);
 
 		socket.emit('sessionSaved', { roomCode, persistentId: pid });
@@ -204,7 +204,10 @@ io.on('connection', (socket) => {
 			hand: [],
 			tricks: 0,
 			isSpectator: false,
-			online: true
+			online: true,
+			assoDenariCount: 0,
+			totalTricks: 0, 
+			maxLivesLost: 0
 		};
 
 		if (room.phase === 'GAME_OVER')
@@ -214,7 +217,7 @@ io.on('connection', (socket) => {
 			room.phase = 'LOBBY';
 			room.hostId = socket.id; // Become Host
 			room.cardsPerHand = 5;
-			room.direction: -1;
+			room.direction = -1;
 			room.deck = [];
 			room.bids = {};
 			room.currentRoundCards = [];
@@ -380,8 +383,18 @@ function startRound(room)
 	activePlayers.forEach(p => {
 		p.hand = [];
 		p.tricks = 0;
-		for (let i = 0; i < room.cardsPerHand; i++) {
-			if (room.deck.length > 0) p.hand.push(room.deck.pop());
+		for (let i = 0; i < room.cardsPerHand; i++)
+		{
+			if (room.deck.length > 0)
+			{
+				const singleCard = room.deck.pop();
+			
+				if (singleCard.suit === 'Denari' && singleCard.value === 'Asso')
+				{
+                    p.assoDenariCount += 1;
+	            }
+	            p.hand.push(singleCard);
+	        }
 		}
 	});
 
@@ -458,6 +471,7 @@ function resolveTrick(room)
 	// Update tricks
 	const winner = room.players.find(p => p.persistentId === winnerPersistentId);
 	winner.tricks += 1;
+	winner.totalTricks += 1;
 	
 	// Notification
 	room.notification = `${winner.username} takes the trick!`;
@@ -508,6 +522,10 @@ function calculateScores(room)
 		});
 
 		p.lives -= diff;
+		if (diff > p.maxLivesLost)
+		{
+            p.maxLivesLost = diff;
+        }
 		
 		if (p.lives <= 0)
 		{

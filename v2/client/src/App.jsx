@@ -20,6 +20,26 @@ const TargetIcon = ({ className }) => (
 	</svg>
 );
 
+const LuckIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+    <path d="M11 12a1 1 0 01-1 1H7a1 1 0 01-1-1V9a1 1 0 011-1h3a1 1 0 011 1v3z" opacity="0.5"/> 
+    <path fillRule="evenodd" d="M12 22a10 10 0 100-20 10 10 0 000 20zm-2.5-16a2.5 2.5 0 115 0 2.5 2.5 0 01-5 0zM7 9a2.5 2.5 0 100 5 2.5 2.5 0 000-5zm10 0a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM9.5 16a2.5 2.5 0 115 0 2.5 2.5 0 01-5 0z" clipRule="evenodd" />
+  </svg>
+);
+
+const MuscleIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 00-.584.859 6.753 6.753 0 006.138 5.6 6.73 6.73 0 002.743 1.346A6.707 6.707 0 019.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.75a2.25 2.25 0 00-2.25 2.25c0 .414.336.75.75.75h14.625a.75.75 0 00.75-.75 2.25 2.25 0 00-2.25-2.25h-.75v-2.625c0-1.036-.84-1.875-1.875-1.875h-.739a6.706 6.706 0 01-1.112-3.173 6.73 6.73 0 002.743-1.347 6.753 6.753 0 006.139-5.6.75.75 0 00-.585-.858 47.077 47.077 0 00-3.07-.543V2.62a.75.75 0 00-.658-.744 49.22 49.22 0 00-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 00-.657.744zm0 2.629c0 1.196.312 2.32.857 3.294A5.266 5.266 0 013.16 5.337a45.6 45.6 0 012.006-.343v.256zm13.5 0v-.256c.674.1 1.343.214 2.006.343a5.265 5.265 0 01-2.863 3.207 6.72 6.72 0 00.857-3.294z" clipRule="evenodd" />
+  </svg>
+);
+
+const SkullIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.72 6.97a.75.75 0 10-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 101.06 1.06L12 13.06l1.72 1.72a.75.75 0 101.06-1.06L13.06 12l1.72-1.72a.75.75 0 10-1.06-1.06L12 10.94l-1.72-1.72z" clipRule="evenodd" />
+  </svg>
+);
+
 /*
 const CardsIcon = ({ className }) => (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -767,6 +787,39 @@ function App()
 		<div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 overflow-auto p-4">
 			<div id="scoreboard" className="bg-green-900 border-4 border-yellow-500 p-8 rounded-xl max-w-lg w-full text-center">
 			<h2 className="text-3xl font-bold text-yellow-400 mb-6">Game Over</h2>
+
+			{/* STATISTIC */}
+			{(() => {
+            const luckyPlayer = [...gameState.players].sort((a,b) => b.aceDenariCount - a.aceDenariCount)[0];
+            const strongPlayer = [...gameState.players].sort((a,b) => b.totalTricks - a.totalTricks)[0];
+            const tragicPlayer = [...gameState.players].sort((a,b) => b.maxLivesLost - a.maxLivesLost)[0];
+
+            return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div className="bg-yellow-500/20 border border-yellow-400/50 p-3 rounded-lg flex flex-col items-center">
+                        <LuckIcon className="w-8 h-8 text-yellow-300 mb-1" />
+                        <span className="text-xs text-yellow-100 uppercase font-bold">The Chosen One</span>
+                        <span className="text-lg font-bold text-white">{luckyPlayer.aceDenariCount > 0 ? luckyPlayer.username : '-'}</span>
+                        <span className="text-[10px] text-yellow-200/70">{luckyPlayer.aceDenariCount} Golden Aces</span>
+                    </div>
+
+                    <div className="bg-blue-500/20 border border-blue-400/50 p-3 rounded-lg flex flex-col items-center">
+                        <MuscleIcon className="w-8 h-8 text-blue-300 mb-1" />
+                        <span className="text-xs text-blue-100 uppercase font-bold">The Harvester</span>
+                        <span className="text-lg font-bold text-white">{strongPlayer.totalTricks > 0 ? strongPlayer.username : '-'}</span>
+                        <span className="text-[10px] text-blue-200/70">{strongPlayer.totalTricks} Tricks Taken</span>
+                    </div>
+
+                    <div className="bg-red-500/20 border border-red-400/50 p-3 rounded-lg flex flex-col items-center">
+                        <SkullIcon className="w-8 h-8 text-red-400 mb-1" />
+                        <span className="text-xs text-red-100 uppercase font-bold">The Tragic</span>
+                        <span className="text-lg font-bold text-white">{tragicPlayer.maxLivesLost > 0 ? tragicPlayer.username : '-'}</span>
+                        <span className="text-[10px] text-red-200/70">-{tragicPlayer.maxLivesLost} Lives in 1 round</span>
+                    </div>
+                </div>
+            );
+        })()}
+
 			<div className="space-y-4">
 				{gameState.players
 				.sort((a, b) => b.lives - a.lives)
