@@ -219,6 +219,10 @@ function App()
 		socket.emit('returnToLobby', { roomCode: gameState.code, username});
 	};
 
+	const handleHostChoice = (choice) => {
+		socket.emit('processHostDecision', { roomCode: gameState.code, choice });
+  };
+
 	const submitBid = (bid) => {
 		socket.emit('submitBid', { roomCode: gameState.code, bid });
 	};
@@ -697,6 +701,66 @@ function App()
 					</div>
 			</div>
 		)}
+
+		{gameState.phase === 'HOST_DECISION' && me.id === gameState.hostId && (
+        <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+            <div className="bg-green-900 border-4 border-yellow-500 p-8 rounded-2xl max-w-lg w-full text-center shadow-2xl relative">
+                
+                <h2 className="text-3xl font-bold text-yellow-400 mb-2">Round Set Complete!</h2>
+                <p className="text-green-200 mb-8">What do you want to do next?</p>
+
+                    <div className="flex flex-col gap-4">
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Descending */}
+                            <button 
+                                onClick={() => handleHostChoice('CONTINUE_DESC')}
+                                className="bg-blue-600 hover:bg-blue-500 p-4 rounded-xl flex flex-col items-center gap-2 transition-transform hover:scale-105"
+                            >
+                                <span className="text-2xl">Keep playing</span>
+                                <div className="leading-tight">
+                                    <span className="block font-bold">Descending</span>
+                                    <span className="text-xs opacity-70">5 ➔ 1 Cards</span>
+                                </div>
+                            </button>
+
+                            {/* Ascending */}
+                            <button 
+                                onClick={() => handleHostChoice('CONTINUE_ASC')}
+                                className="bg-green-600 hover:bg-green-500 p-4 rounded-xl flex flex-col items-center gap-2 transition-transform hover:scale-105"
+                            >
+                                <span className="text-2xl">Keep playing</span>
+                                <div className="leading-tight">
+                                    <span className="block font-bold">Ascending</span>
+                                    <span className="text-xs opacity-70">1 ➔ 5 Cards</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div className="border-t border-green-700/50 my-2"></div>
+
+                        {/* Stop game */}
+                        <button 
+                            onClick={() => handleHostChoice('END_GAME')}
+                            className="bg-red-600 hover:bg-red-500 text-white py-3 rounded-lg font-bold shadow-lg flex items-center justify-center gap-2"
+                        >
+                            <span></span> End Game & Show Results
+                        </button>
+                    </div>
+                		{ /* : (
+                    <div className="flex flex-col items-center py-8">
+                        <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-6"></div>
+                        <p className="text-xl font-bold text-white animate-pulse">Waiting for Host...</p>
+                        <p className="text-sm text-green-300 mt-2">The Host is deciding the next phase.</p>
+                    </div>
+              	)*/ }
+            </div>
+
+            <div className="mt-8 text-white/50 text-sm">
+                Stats and lives are preserved.
+            </div>
+        </div>
+      )}
 
 		{/* Game Over Scoreboard */}
 		{gameState.phase === 'GAME_OVER' && (

@@ -86,7 +86,7 @@ const getPublicState = (room, playerId) => {
 
 	return {
 		code: room.code,
-		phase: room.phase, // 'LOBBY', 'BIDDING', 'PLAYING', 'ROUND_END', 'GAME_OVER'
+		phase: room.phase, // 'LOBBY', 'BIDDING', 'PLAYING', 'ROUND_END', 'HOST_DECISION', 'GAME_OVER'
 		players: players,
 		currentTurn: room.currentTurn, // Index of player
 		currentRoundCards: room.currentRoundCards, // Cards on table
@@ -127,6 +127,7 @@ io.on('connection', (socket) => {
 			phase: 'LOBBY',
 			initialLives: parseInt(initialLives),
 			cardsPerHand: 5,
+			direction: -1, // -1 = descending, +1 = ascending
 			deck: [],
 			currentTurn: 0,
 			startPlayerIndex: 0,
@@ -213,6 +214,7 @@ io.on('connection', (socket) => {
 			room.phase = 'LOBBY';
 			room.hostId = socket.id; // Become Host
 			room.cardsPerHand = 5;
+			room.direction: -1;
 			room.deck = [];
 			room.bids = {};
 			room.currentRoundCards = [];
@@ -314,6 +316,32 @@ io.on('connection', (socket) => {
 		} else {
 			advanceTurn(room);
 		}
+	});
+
+	socket.on('processHostDecision', ({ roomCode, choice }) => {
+		const room = rooms[roomCode];
+		if (!room || room.hostId !== socket.id) return;
+
+		if (choice === 'END_GAME')
+		{
+			room.phase = 'GAME_OVER';
+		} 
+        else if (choice === 'CONTINUE_DESC')
+        {
+			room.direction = -1;
+			room.cardsPerHand = 5;
+            room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
+			startRound(room);
+		} 
+        else if (choice === 'CONTINUE_ASC')
+        {
+			room.direction = 1;
+			room.cardsPerHand = 1;
+            room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
+			startRound(room);
+		}
+
+		broadcastUpdate(room);
 	});
 
 	socket.on('disconnect', () => {
@@ -445,7 +473,8 @@ function resolveTrick(room)
 		const activePlayers = room.players.filter(p => !p.isSpectator);
 		const cardsLeft = activePlayers[0].hand.length;
 
-		if (cardsLeft === 0) {
+		if (cardsLeft === 0)
+		{
 			calculateScores(room);
 		} else {
 			room.currentRoundCards = [];
@@ -455,6 +484,72 @@ function resolveTrick(room)
 			broadcastUpdate(room);
 		}
 	}, NEXT_HAND_TIMEOUT);
+}
+
+
+function calculateScores(room)
+{
+	const roundSummary = [];
+
+	room.players.forEach(p => {
+		if (p.isSpectator) return;
+		const bid = room.bids[p.persistentId];
+		if (bid === undefined)
+		{
+			console.log("Error: "+p.username+" has undefined bids");
+			bid = 0;
+		}
+		const tricks = p.tricks;
+		const diff = Math.abs(bid - tricks);
+
+		roundSummary.push({
+			persistentId: p.persistentId,
+			livesLost: diff
+		});
+
+		p.lives -= diff;
+		
+		if (p.lives <= 0)
+		{
+			p.isSpectator = true;
+		}
+	});
+
+	// 1. send result to clients
+	io.to(room.code).emit('roundSummary', roundSummary);
+	room.notification = "Round ended. Checking lives...";
+	broadcastUpdate(room);
+
+	// 2. wait and then show animation
+	setTimeout(() => {
+		if (!rooms[room.code]) return;
+		const survivors = room.players.filter(p => !p.isSpectator);
+		
+		if (survivors.length < MIN_NUMBER_OF_PLAYERS) {
+			// Game Over
+			room.phase = 'GAME_OVER';
+			broadcastUpdate(room);
+			return;
+		}
+
+		// Prepare next round
+		const nextRoundCards = room.cardsPerHand + room.direction;
+	    const isSetFinished = (room.direction === -1 && nextRoundCards === 0) || 
+                          (room.direction === 1 && nextRoundCards === 6);
+
+		if (isSetFinished)
+		{
+			room.phase = 'HOST_DECISION';
+			room.notification = "End of set. Waiting for Host decision...";
+		} else
+		{
+			room.cardsPerHand = nextRoundCards;
+			// Rotate dealer
+			room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
+			startRound(room);
+		}
+		broadcastUpdate(room);
+	}, NEXT_ROUND_TIMEOUT);
 }
 
 function isBetterCard(challenger, defender)
@@ -490,63 +585,6 @@ function isBetterCard(challenger, defender)
 	return cValRank > dValRank;
 }
 
-function calculateScores(room)
-{
-	const roundSummary = [];
-
-	room.players.forEach(p => {
-		if (p.isSpectator) return;
-		const bid = room.bids[p.persistentId];
-		if (bid === undefined)
-		{
-			console.log("Error: "+p.username+" has undefined bids");
-			bid = 0;
-		}
-		const tricks = p.tricks;
-		const diff = Math.abs(bid - tricks);
-
-		roundSummary.push({
-			persistentId: p.persistentId,
-			livesLost: diff
-		});
-
-		p.lives -= diff;
-		
-		if (p.lives <= 0) {
-			p.isSpectator = true;
-		}
-	});
-
-	// 1. send result to clients
-	io.to(room.code).emit('roundSummary', roundSummary);
-	room.notification = "Round ended. Checking lives...";
-	broadcastUpdate(room);
-
-	// 2. wait and then show animation
-	setTimeout(() => {
-		if (!rooms[room.code]) return;
-		const survivors = room.players.filter(p => !p.isSpectator);
-		
-		if (survivors.length < MIN_NUMBER_OF_PLAYERS) {
-			// Game Over
-			room.phase = 'GAME_OVER';
-			broadcastUpdate(room);
-			return;
-		}
-
-		// Prepare next round (decrease cards)
-		room.cardsPerHand -= 1;
-		
-		if (room.cardsPerHand === 0) {
-			room.phase = 'GAME_OVER';
-		} else {
-			// Rotate dealer
-			room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
-			startRound(room);
-		}
-		broadcastUpdate(room);
-	}, NEXT_ROUND_TIMEOUT);
-}
 
 function broadcastUpdate(room) {
 	room.players.forEach(p => {
