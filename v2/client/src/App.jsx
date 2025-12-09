@@ -346,32 +346,41 @@ function App()
 					</>
 			)}
 		{/* Header */}
-		<div className="bg-green-900 p-2 flex justify-between items-center shadow-md">
-		<div className="text-sm">
-			Room: <span className="text-yellow-400 font-bold">{gameState.code}</span>
-		</div>
-		<div className="text-sm">
-			{gameState.phase} - {gameState.cardsPerHand} Cards Round
-		</div>
-		<button 
-				onClick={() => {
-						localStorage.removeItem(STORAGE_ITEM_NAME);
-						window.history.replaceState({}, document.title, window.location.pathname);
-						window.location.reload();
-				}}
-				className="ml-4 text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-500"
-		>
-				Exit session
-		</button>
-		</div>
+		<div className="bg-green-900 h-14 px-4 flex justify-between items-center shadow-md w-full z-50 relative shrink-0">
+        
+        {/* Room Code */}
+        <div className="text-xs md:text-sm flex flex-col md:flex-row md:gap-2">
+          <span className="opacity-70">Room:</span>
+          <span className="text-yellow-400 font-bold tracking-wider">{gameState.code}</span>
+        </div>
+
+        {/* Notifications and match infos */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center w-3/5">
+            
+            <div className="text-[10px] text-green-400 font-mono uppercase tracking-widest leading-tight">
+                {gameState.phase} • {gameState.cardsPerHand} Cards
+            </div>
+
+            <div className="text-xs md:text-sm font-bold text-white text-center truncate w-full animate-pulse drop-shadow-md">
+                {gameState.notification || "Waiting..."}
+            </div>
+        </div>
+
+        {/* Exit Button */}
+        <button 
+            onClick={() => {
+                localStorage.removeItem(STORAGE_ITEM_NAME);
+                window.history.replaceState({}, document.title, window.location.pathname);
+                window.location.reload();
+            }}
+            className="text-[10px] md:text-xs bg-red-600/80 hover:bg-red-500 px-3 py-1.5 rounded text-white font-bold transition-colors"
+        >
+            Exit session
+        </button>
+      </div>
 
 		{/* Main Table Area */}
 		<div className="flex-1 flex flex-col items-center justify-between p-4 relative w-full h-full">
-		
-		{/* Notifications */}
-		<div className="absolute top-4 bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm z-10 animate-pulse z-50">
-			{gameState.notification}
-		</div>
 
 		{/* Other Players (Top/Sides - Simplified as a row for mobile) */}
 		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:justify-around md:items-start md:px-10 relative z-30 pointer-events-none">
