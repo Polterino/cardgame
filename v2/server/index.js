@@ -88,12 +88,13 @@ const getPublicState = (room, playerId) => {
 		code: room.code,
 		phase: room.phase, // 'LOBBY', 'BIDDING', 'PLAYING', 'ROUND_END', 'HOST_DECISION', 'GAME_OVER'
 		players: players,
+		hostId: room.hostId,
+		isPaused: room.isPaused,
 		currentTurn: room.currentTurn, // Index of player
 		currentRoundCards: room.currentRoundCards, // Cards on table
 		lastTrick: room.lastTrick,
 		cardsPerHand: room.cardsPerHand,
 		bids: room.bids,
-		hostId: room.hostId,
 		lastWinnerIndex: room.lastWinnerIndex,
 		notification: room.notification
 	};
@@ -125,6 +126,7 @@ io.on('connection', (socket) => {
 			hostId: socket.id,
 			players: [{ id: socket.id, persistentId: pid, username, lives: parseInt(initialLives), hand: [], tricks: 0, isSpectator: false, online: true, assoDenariCount: 0, totalTricks: 0, maxLivesLost: 0 }],
 			phase: 'LOBBY',
+			isPaused: false,
 			initialLives: parseInt(initialLives),
 			cardsPerHand: 5,
 			direction: -1, // -1 = descending, +1 = ascending
@@ -281,6 +283,7 @@ io.on('connection', (socket) => {
 	socket.on('playCard', ({ roomCode, card, mode }) => { // mode is 'high' or 'low' for Ace Denari
 		const room = rooms[roomCode];
 		if (!room || room.phase !== 'PLAYING') return;
+		if (room.isPaused) return;
 
 		const player = getPlayerBySocket(room, socket.id);
 		if (!player) return;
@@ -446,6 +449,8 @@ function resolveTrick(room)
 	// Logic: Highest Suit (Denari > Coppe > Spade > Bastoni) wins over different suits
 	// If same suit, value comparison
 	// Exception: Ace of Denari (High/Low)
+	room.isPaused = true;
+	broadcastUpdate(room);
 	
 	let winnerPersistentId = null;
 	let winningCardObj = null;
@@ -489,12 +494,15 @@ function resolveTrick(room)
 
 		if (cardsLeft === 0)
 		{
+			room.isPaused = false;
 			calculateScores(room);
 		} else {
 			room.currentRoundCards = [];
 			// Winner starts next trick
 			room.currentTurn = room.players.findIndex(p => p.persistentId === winnerPersistentId);
 			room.notification = `Now ${room.players[room.currentTurn].username} starts`;
+
+			room.isPaused = false;
 			broadcastUpdate(room);
 		}
 	}, NEXT_HAND_TIMEOUT);

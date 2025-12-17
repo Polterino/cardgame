@@ -91,7 +91,7 @@ function App()
 	const me = gameState?.players?.find(p => p.id === socket.id);
 	const myIndex = gameState ? gameState.players.findIndex(p => p.id === socket.id) : -1;
 	const isMyTurn = gameState ? gameState.currentTurn === myIndex : false;
-	const isActionPhase = gameState ? ['BIDDING', 'PLAYING'].includes(gameState.phase) : false;
+	const isActionPhase = gameState ? ['BIDDING', 'PLAYING'].includes(gameState.phase) && !gameState.isPaused : false;
 
 	// Order opponents to show them correctly to each client
 	const orderedOpponents = [];
@@ -672,7 +672,7 @@ function App()
 						min-h-[150px] md:min-h-[250px]
 						md:-space-x-10 md:pb-6 
 						transition-all duration-500 rounded-xl px-4
-						${isMyTurn && isActionPhase ? 'bg-yellow-500/5 shadow-[0_0_40px_rgba(234,179,8,0.15)]' : ''}
+						${isMyTurn && isActionPhase ? 'bg-yellow-500/5 shadow-[0_0_40px_rgba(234,179,8,0.15)]' : 'opacity-70 grayscale-[0.5] pointer-events-none'}
 				`}>
 				{me.hand.map((card, idx) => {
 						const isPlayable = gameState.phase === 'PLAYING' && isMyTurn;
