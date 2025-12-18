@@ -790,17 +790,28 @@ function App()
 
 			{/* STATISTIC */}
 			{(() => {
-            const luckyPlayer = [...gameState.players].sort((a,b) => b.aceDenariCount - a.aceDenariCount)[0];
+            const luckyPlayer = [...gameState.players].sort((a,b) => b.assoDenariCount - a.assoDenariCount)[0];
             const strongPlayer = [...gameState.players].sort((a,b) => b.totalTricks - a.totalTricks)[0];
             const tragicPlayer = [...gameState.players].sort((a,b) => b.maxLivesLost - a.maxLivesLost)[0];
+            /*
+            console.log("--- Statistics ---");
+            const debugData = gameState.players.map(p => ({
+                Username: p.username,
+                'assoDenariCount': p.assoDenariCount,
+                'totalTricks': p.totalTricks,
+                'maxLivesLost': p.maxLivesLost,
+                'Raw Object': p
+            }));
+            console.table(debugData);
+            */
 
             return (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div className="bg-yellow-500/20 border border-yellow-400/50 p-3 rounded-lg flex flex-col items-center">
                         <LuckIcon className="w-8 h-8 text-yellow-300 mb-1" />
                         <span className="text-xs text-yellow-100 uppercase font-bold">The Chosen One</span>
-                        <span className="text-lg font-bold text-white">{luckyPlayer.aceDenariCount > 0 ? luckyPlayer.username : '-'}</span>
-                        <span className="text-[10px] text-yellow-200/70">{luckyPlayer.aceDenariCount} Golden Aces</span>
+                        <span className="text-lg font-bold text-white">{luckyPlayer.assoDenariCount > 0 ? luckyPlayer.username : '-'}</span>
+                        <span className="text-[10px] text-yellow-200/70">{luckyPlayer.assoDenariCount} Golden Aces</span>
                     </div>
 
                     <div className="bg-blue-500/20 border border-blue-400/50 p-3 rounded-lg flex flex-col items-center">

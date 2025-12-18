@@ -368,6 +368,7 @@ io.on('connection', (socket) => {
 
 function startRound(room)
 {
+	room.isPaused = false;
 	room.phase = 'BIDDING';
 	room.deck = shuffleDeck(createDeck());
 	room.bids = {};
@@ -383,6 +384,8 @@ function startRound(room)
 		return;
 	}
 
+	assoEveryTurn = false;
+	isAsso = false;
 	activePlayers.forEach(p => {
 		p.hand = [];
 		p.tricks = 0;
@@ -395,11 +398,17 @@ function startRound(room)
 				if (singleCard.suit === 'Denari' && singleCard.value === 'Asso')
 				{
                     p.assoDenariCount += 1;
+                    isAsso = true;
 	            }
 	            p.hand.push(singleCard);
 	        }
 		}
 	});
+	if(!isAsso && assoEveryTurn)
+	{
+		activePlayers[0].hand.pop();
+		activePlayers[0].hand.push({ suit: 'Denari', value: 'Asso', id: uuidv4() });
+	}
 
 	// Determine starting player for Bidding
 	// Logic: In first game, random or host. Next rounds: rotates.
@@ -494,7 +503,6 @@ function resolveTrick(room)
 
 		if (cardsLeft === 0)
 		{
-			room.isPaused = false;
 			calculateScores(room);
 		} else {
 			room.currentRoundCards = [];
