@@ -131,6 +131,36 @@ Once the `.env` is configured, start the client:
 
 ```
 npm run dev
-
 ```
+This will start the client on the default Vite port which is 5173. This is not the recommended way of self-hosting this webapp, you should instead:
 
+1. Build the project
+```
+npm run build
+```
+This will create a dist/ folder inside the client/ folder which will contain all static html/js files.
+
+2. Copy client/dist/* into /var/www/cardgame/dist/ and use a webserver such as nginx to provide those files
+
+## Installing on armbian
+If your installation of nodejs on armbian is outdated, upgrade it using NVM
+```
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+source ~/.bashrc
+```
+Then install the latest nodejs version
+```
+nvm install 22
+nvm use 22
+nvm alias default 22
+```
+If there's a server uuid error:
+```
+npm uninstall uuid
+npm install uuid@9.0.1
+```
+If you mistakenly executed "sudo npm install" instead of "npm install":
+```
+sudo chown -R $USER:$USER yourpath/cardgame/v2/client
+sudo rm -rf yourpath/cardgame/v2/client/node_modules/.vite
+npm run dev
