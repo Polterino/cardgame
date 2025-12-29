@@ -48,6 +48,55 @@ const shuffleDeck = (deck) => {
 	return deck;
 };
 
+// --- FACTORY FUNCTIONS ---
+const createPlayer = (socketId, username, lives, persistentId = null) => {
+	return {
+		id: socketId,
+		persistentId: persistentId || uuidv4(),
+		username: username,
+		lives: parseInt(lives),
+		isSpectator: false,
+		online: true,
+		
+		// Game state
+		hand: [],
+		tricks: 0,
+		
+		// Stats
+		assoDenariCount: 0,
+		totalTricks: 0,
+		maxLivesLost: 0,
+	};
+};
+
+const resetPlayerStats = (player, initialLives) => {
+	return createPlayer(player.id, player.username, initialLives, player.persistentId);
+};
+
+const formatPlayerForClient = (player, viewerId, roomConfig) => {
+	const safePlayer = { ...player }; 
+
+    const isBlindRound = (roomConfig.cardsPerHand === 1);
+    const isMe = (player.id === viewerId);
+
+    if (isBlindRound)
+    {
+        if (isMe) {
+            safePlayer.hand = player.hand.map(c => ({ ...c, suit: '?', value: '?' }));
+        } else {
+            safePlayer.hand = player.hand;
+        }
+    } else {
+        if (isMe) {
+            safePlayer.hand = player.hand;
+        } else {
+            safePlayer.hand = player.hand.map(c => ({ ...c, suit: '?', value: '?' }));
+        }
+    }
+
+    return safePlayer;
+};
+
 // --- Game State Management ---
 
 const rooms = {};
@@ -55,35 +104,7 @@ const rooms = {};
 // Helper to get safe game state for a specific player (hide cards)
 const getPublicState = (room, playerId) => {
 	if (!room) return null;
-	
-	const players = room.players.map(p => {
-		// Logic for visibility
-		let hand = [];
-		const isBlindRound = (room.cardsPerHand === 1);
-		
-		if (isBlindRound) {
-			// In blind round (1 card), I see everyone else's cards, but NOT mine
-			if (p.id === playerId) {
-				hand = p.hand.map(c => ({ ...c, suit: '?', value: '?' })); // Mask own
-			} else {
-				hand = p.hand; // Reveal others
-			}
-		} else {
-			// Normal round: I see mine, mask others
-			if (p.id === playerId) {
-				hand = p.hand;
-			} else {
-				hand = p.hand.map(c => ({ ...c, suit: '?', value: '?' }));
-			}
-		}
-
-		return {
-			...p,
-			hand: hand,
-			lives: p.lives
-		};
-	});
-
+	const players = room.players.map(p => formatPlayerForClient(p, playerId, room));
 	return {
 		code: room.code,
 		phase: room.phase, // 'LOBBY', 'BIDDING', 'PLAYING', 'ROUND_END', 'HOST_DECISION', 'GAME_OVER'
@@ -97,7 +118,7 @@ const getPublicState = (room, playerId) => {
 		bids: room.bids,
 		lastWinnerIndex: room.lastWinnerIndex,
 		notification: room.notification
-	};
+	}; // I send only what I want the clients to receive, for instance I don't send deck (array)
 };
 
 io.on('connection', (socket) => {
@@ -119,12 +140,12 @@ io.on('connection', (socket) => {
 		}
 
 		const roomCode = uuidv4().slice(0, 6).toUpperCase();
-		const pid = uuidv4(); // persistent ID
+		const newPlayer = createPlayer(socket.id, username, initialLives);
 
 		rooms[roomCode] = {
 			code: roomCode,
 			hostId: socket.id,
-			players: [{ id: socket.id, persistentId: pid, username, lives: parseInt(initialLives), hand: [], tricks: 0, isSpectator: false, online: true, assoDenariCount: 0, totalTricks: 0, maxLivesLost: 0 }],
+			players: [newPlayer],
 			phase: 'LOBBY',
 			isPaused: false,
 			initialLives: parseInt(initialLives),
@@ -141,7 +162,7 @@ io.on('connection', (socket) => {
 		};
 		socket.join(roomCode);
 
-		socket.emit('sessionSaved', { roomCode, persistentId: pid });
+		socket.emit('sessionSaved', { roomCode, persistentId: newPlayer.persistentId });
 
 		socket.emit('roomCreated', roomCode);
 		io.to(roomCode).emit('updateState', getPublicState(rooms[roomCode], null));
@@ -153,11 +174,11 @@ io.on('connection', (socket) => {
 		if (room.players.find(p => p.username === username)) return socket.emit('error', 'Username taken');
 		if (room.phase !== 'LOBBY') return socket.emit('error', 'Game already started');
 
-		const pid = uuidv4();
-		room.players.push({ id: socket.id, persistentId: pid, username, lives: room.initialLives, hand: [], tricks: 0, isSpectator: false, online: true, assoDenariCount: 0, totalTricks: 0, maxLivesLost: 0 });
+		const newPlayer = createPlayer(socket.id, username, room.initialLives);
+		room.players.push(newPlayer);
 		socket.join(roomCode);
 
-		socket.emit('sessionSaved', { roomCode, persistentId: pid });
+		socket.emit('sessionSaved', { roomCode, persistentId: newPlayer.persistentId });
 		
 		// Broadcast update to everyone individually to mask cards correctly
 		broadcastUpdate(room);
@@ -197,20 +218,7 @@ io.on('connection', (socket) => {
 		const room = rooms[roomCode];
 		if (!room) return;
 
-		const newPid = uuidv4();
-		const freshPlayer = {
-			id: socket.id,
-			persistentId: newPid,
-			username: username,
-			lives: room.initialLives,
-			hand: [],
-			tricks: 0,
-			isSpectator: false,
-			online: true,
-			assoDenariCount: 0,
-			totalTricks: 0, 
-			maxLivesLost: 0
-		};
+		const freshPlayer = createPlayer(socket.id, username, room.initialLives);
 
 		if (room.phase === 'GAME_OVER')
 		{
@@ -228,16 +236,17 @@ io.on('connection', (socket) => {
 			
 			// Reset all players
 			room.players = [freshPlayer];
-			socket.emit('sessionSaved', { roomCode, persistentId: newPid });
+			socket.emit('sessionSaved', { roomCode, persistentId: freshPlayer.persistentId });
 		} 
 		// room already reset
 		else if (room.phase === 'LOBBY')
 		{
 			const alreadyIn = room.players.find(p => p.username === username);
 			
-			if (!alreadyIn) {
+			if (!alreadyIn)
+			{
 				room.players.push(freshPlayer);
-				socket.emit('sessionSaved', { roomCode, persistentId: newPid });
+				socket.emit('sessionSaved', { roomCode, persistentId: freshPlayer.persistentId });
 			}
 			else socket.emit('error', 'There\'s already a player with your username in the room');
 		}
@@ -332,18 +341,18 @@ io.on('connection', (socket) => {
 		{
 			room.phase = 'GAME_OVER';
 		} 
-        else if (choice === 'CONTINUE_DESC')
-        {
+		else if (choice === 'CONTINUE_DESC')
+		{
 			room.direction = -1;
 			room.cardsPerHand = 5;
-            room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
+			room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
 			startRound(room);
 		} 
-        else if (choice === 'CONTINUE_ASC')
-        {
+		else if (choice === 'CONTINUE_ASC')
+		{
 			room.direction = 1;
 			room.cardsPerHand = 1;
-            room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
+			room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
 			startRound(room);
 		}
 
@@ -384,8 +393,8 @@ function startRound(room)
 		return;
 	}
 
-	assoEveryTurn = false;
-	isAsso = false;
+	let assoEveryTurn = false;
+	let isAsso = false;
 	activePlayers.forEach(p => {
 		p.hand = [];
 		p.tricks = 0;
@@ -397,17 +406,19 @@ function startRound(room)
 			
 				if (singleCard.suit === 'Denari' && singleCard.value === 'Asso')
 				{
-                    p.assoDenariCount += 1;
-                    isAsso = true;
-	            }
-	            p.hand.push(singleCard);
-	        }
+					p.assoDenariCount += 1;
+					isAsso = true;
+				}
+				p.hand.push(singleCard);
+			}
 		}
 	});
 	if(!isAsso && assoEveryTurn)
 	{
-		activePlayers[0].hand.pop();
-		activePlayers[0].hand.push({ suit: 'Denari', value: 'Asso', id: uuidv4() });
+		const randomIndex = Math.floor(Math.random() * activePlayers.length);
+		activePlayers[randomIndex].hand.pop();
+		activePlayers[randomIndex].hand.push({ suit: 'Denari', value: 'Asso', id: uuidv4() });
+		activePlayers[randomIndex].assoDenariCount += 1;
 	}
 
 	// Determine starting player for Bidding
@@ -540,8 +551,8 @@ function calculateScores(room)
 		p.lives -= diff;
 		if (diff > p.maxLivesLost)
 		{
-            p.maxLivesLost = diff;
-        }
+			p.maxLivesLost = diff;
+		}
 		
 		if (p.lives <= 0)
 		{
@@ -568,8 +579,8 @@ function calculateScores(room)
 
 		// Prepare next round
 		const nextRoundCards = room.cardsPerHand + room.direction;
-	    const isSetFinished = (room.direction === -1 && nextRoundCards === 0) || 
-                          (room.direction === 1 && nextRoundCards === 6);
+		const isSetFinished = (room.direction === -1 && nextRoundCards === 0) || 
+						  (room.direction === 1 && nextRoundCards === 6);
 
 		if (isSetFinished)
 		{
