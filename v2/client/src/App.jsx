@@ -77,6 +77,7 @@ function App()
 	const [selectedCardId, setSelectedCardId] = useState(null); // pre select cards
 	const [roundSummary, setRoundSummary] = useState(null);
 	const prevTurnRef = useRef(null); // Previous turn reference
+	const [availableRooms, setAvailableRooms] = useState([]);
 
 	// Constants
 	const CARD_PATH = "/napoletane/";
@@ -101,7 +102,8 @@ function App()
 		for (let i = 1; i < totalPlayers; i++)
 		{
 			const nextIndex = (myIndex + i) % totalPlayers;
-			orderedOpponents.push(gameState.players[nextIndex]);
+			if(!gameState.players[nextIndex].isSpectator)
+				orderedOpponents.push(gameState.players[nextIndex]);
 		}
 	} else if (gameState)
 	{
@@ -151,11 +153,16 @@ function App()
 					// Small delay to create socket
 					setTimeout(() => socket.emit('joinRoom', { roomCode: code.toUpperCase(), username: savedUsername }), 50);
 				else
+				{
 					alert('Can\'t join room without a username');
+					socket.emit('getRooms');
+				}
 			}
+			else socket.emit('getRooms');
 		};
 
 		socket.on('updateState', (state) => setGameState(state));
+		socket.on('roomListUpdate', (rooms) => setAvailableRooms(rooms));
 		socket.on('roomCreated', (code) => {
 			setRoomCodeInput(code);
 			// Auto join is handled by server state update usually, 
@@ -245,6 +252,15 @@ function App()
 
 	const submitBid = (bid) => {
 		socket.emit('submitBid', { roomCode: gameState.code, bid });
+	};
+
+	const handleExit = () => {
+    if (gameState && me) {
+        socket.emit('exitGame', { roomCode: gameState.code, persistentId: me.persistentId });
+    }
+    localStorage.removeItem(STORAGE_ITEM_NAME);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    window.location.reload();
 	};
 
 	const handleCardClick = (card) => {
@@ -344,6 +360,46 @@ function App()
 				</div>
 			</div>
 			</div>
+				<div className="mt-8 w-full border-t border-green-700 pt-4">
+			    <h3 className="text-green-300 mb-2 font-bold">Active Rooms</h3>
+			    <div className="flex flex-col gap-2 max-h-60 overflow-y-auto custom-scrollbar">
+			        {availableRooms.length === 0 ? (
+			            <p className="text-green-500/50 text-sm italic">No active rooms found.</p>
+			        ) : (
+			            availableRooms.map((r) => (
+			                <div key={r.code} className="bg-green-900/50 p-3 rounded flex justify-between items-center border border-green-600/30">
+			                    <div>
+			                        <span className="font-bold text-yellow-400 mr-2">{r.code}</span>
+			                        <span className={`text-xs px-1.5 py-0.5 rounded ${r.phase === 'LOBBY' ? 'bg-blue-500/20 text-blue-200' : 'bg-red-500/20 text-red-200'}`}>
+			                            {r.phase === 'LOBBY' || r.phase === 'GAME_OVER' ? 'WAITING' : 'PLAYING'}
+			                        </span>
+			                    </div>
+			                    <div className="flex items-center gap-3">
+			                        <div className="text-xs text-green-200">
+			                            {r.playerCount} Players
+			                            {r.spectatorCount > 0 && <span className="text-gray-400 ml-1">({r.spectatorCount} spectators)</span>}
+			                        </div>
+			                        <button 
+			                            onClick={() => {
+			                                setRoomCodeInput(r.code);
+			                                if(username)
+			                                {
+			                                    socket.emit('joinRoom', { roomCode: r.code, username });
+			                                } else
+			                                {
+			                                    alert("Please enter a username first");
+			                                }
+			                            }}
+			                            className="bg-green-700 hover:bg-green-600 px-3 py-1 rounded text-xs font-bold"
+			                        >
+			                            JOIN
+			                        </button>
+			                    </div>
+			                </div>
+			            ))
+			        )}
+			    </div>
+			</div>
 		</div>
 		</div>
 	);
@@ -392,11 +448,7 @@ function App()
 
 				{/* Exit Button */}
 				<button 
-						onClick={() => {
-								localStorage.removeItem(STORAGE_ITEM_NAME);
-								window.history.replaceState({}, document.title, window.location.pathname);
-								window.location.reload();
-						}}
+						onClick={handleExit}
 						className="text-[10px] md:text-xs bg-red-600/80 hover:bg-red-500 px-3 py-1.5 rounded text-white font-bold transition-colors"
 				>
 						Exit session
@@ -405,6 +457,25 @@ function App()
 
 		{/* Main Table Area */}
 		<div className="flex-1 flex flex-col items-center justify-between p-4 relative w-full h-full">
+
+		{/* --- SPECTATOR LIST --- */}
+		{gameState.players.some(p => p.isSpectator) && (
+		    <div className="absolute top-20 right-4 z-0 flex flex-col items-end pointer-events-none opacity-60">
+		        <span className="text-[10px] text-green-400 uppercase tracking-widest font-bold mb-1">Spectators</span>
+		        <div className="flex flex-col gap-1 items-end">
+		            {gameState.players
+		                .filter(p => p.isSpectator)
+		                .map(p => (
+		                    <div key={p.id} className="flex items-center gap-2 bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm">
+		                        <span className={`w-2 h-2 rounded-full ${p.online ? 'bg-gray-400' : 'bg-red-900'}`}></span>
+		                        <span className={`text-xs ${p.online ? 'text-gray-300' : 'text-gray-600 line-through'}`}>
+		                            {p.username}
+		                        </span>
+		                    </div>
+		                ))}
+		        </div>
+		    </div>
+		)}
 
 		{/* Other Players (Top/Sides - Simplified as a row for mobile) */}
 		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:justify-around md:items-start md:px-10 relative z-30 pointer-events-none">
@@ -605,6 +676,7 @@ function App()
 		)}
 
 		{/* My Hand */}
+		{!me.isSpectator && (
 		<div className="mt-auto w-full flex flex-col items-center pb-2">
 		
 				{/* stats bar */}
@@ -694,6 +766,7 @@ function App()
 				})}
 				</div>
 		</div>
+		)}
 		</div>
 
 		{/* Ace of Denari Modal */}
@@ -790,9 +863,10 @@ function App()
 
 			{/* STATISTIC */}
 			{(() => {
-            const luckyPlayer = [...gameState.players].sort((a,b) => b.assoDenariCount - a.assoDenariCount)[0];
-            const strongPlayer = [...gameState.players].sort((a,b) => b.totalTricks - a.totalTricks)[0];
-            const tragicPlayer = [...gameState.players].sort((a,b) => b.maxLivesLost - a.maxLivesLost)[0];
+						const players = [...gameState.players].filter(p => p.participated);
+            const luckyPlayer = players.sort((a,b) => b.assoDenariCount - a.assoDenariCount)[0];
+            const strongPlayer = players.sort((a,b) => b.totalTricks - a.totalTricks)[0];
+            const tragicPlayer = players.sort((a,b) => b.maxLivesLost - a.maxLivesLost)[0];
             /*
             console.log("--- Statistics ---");
             const debugData = gameState.players.map(p => ({
@@ -832,7 +906,8 @@ function App()
         })()}
 
 			<div className="space-y-4">
-				{gameState.players
+				{[...gameState.players]
+				.filter(p => p.participated)
 				.sort((a, b) => b.lives - a.lives)
 				.map((p, i) => (
 					<div key={p.id} className="flex justify-between items-center bg-green-800 p-3 rounded">

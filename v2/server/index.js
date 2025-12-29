@@ -22,6 +22,7 @@ const VALUES = ['Asso', '2', '3', '4', '5', '6', '7', 'Fante', 'Cavallo', 'Re'];
 const MIN_NUMBER_OF_PLAYERS = 2;
 const NEXT_HAND_TIMEOUT = 5000; // ms, timeout after each hand
 const NEXT_ROUND_TIMEOUT = 10000; // ms, timeout after each round to count how many lives have been lost. Consider that players have already waited NEXT_HAND_TIMEOUT seconds
+const PLAYER_LEFT_TIMER = 4000; // timeout to restart round after a player leaves
 
 const getCardRank = (value) => VALUES.indexOf(value);
 const getSuitRank = (suit) => SUITS.indexOf(suit);
@@ -48,6 +49,23 @@ const shuffleDeck = (deck) => {
 	return deck;
 };
 
+function broadcastRoomList(targetSocket = null)
+{
+    const roomList = Object.values(rooms).filter(r => r.phase !== 'GAME_OVER').map(r => ({
+        code: r.code,
+        phase: r.phase,
+        playerCount: r.players.filter(p => !p.isSpectator).length,
+        spectatorCount: r.players.filter(p => p.isSpectator).length,
+        initialLives: r.initialLives
+    }));
+
+    if (targetSocket) {
+        targetSocket.emit('roomListUpdate', roomList);
+    } else {
+        io.emit('roomListUpdate', roomList);
+    }
+}
+
 // --- FACTORY FUNCTIONS ---
 const createPlayer = (socketId, username, lives, persistentId = null) => {
 	return {
@@ -61,6 +79,7 @@ const createPlayer = (socketId, username, lives, persistentId = null) => {
 		// Game state
 		hand: [],
 		tricks: 0,
+		participated: true,
 		
 		// Stats
 		assoDenariCount: 0,
@@ -166,15 +185,25 @@ io.on('connection', (socket) => {
 
 		socket.emit('roomCreated', roomCode);
 		io.to(roomCode).emit('updateState', getPublicState(rooms[roomCode], null));
+		broadcastRoomList();
 	});
 
 	socket.on('joinRoom', ({ roomCode, username }) => {
 		const room = rooms[roomCode];
 		if (!room) return socket.emit('error', 'Room not found');
 		if (room.players.find(p => p.username === username)) return socket.emit('error', 'Username taken');
-		if (room.phase !== 'LOBBY') return socket.emit('error', 'Game already started');
+		
+		let isSpectator = false;
+        let lives = room.initialLives;
+		if (room.phase !== 'LOBBY')
+		{
+            isSpectator = true;
+            lives = 0;
+        }
 
-		const newPlayer = createPlayer(socket.id, username, room.initialLives);
+		const newPlayer = createPlayer(socket.id, username, lives);
+		newPlayer.isSpectator = isSpectator;
+		newPlayer.participated = !isSpectator;
 		room.players.push(newPlayer);
 		socket.join(roomCode);
 
@@ -237,6 +266,7 @@ io.on('connection', (socket) => {
 			// Reset all players
 			room.players = [freshPlayer];
 			socket.emit('sessionSaved', { roomCode, persistentId: freshPlayer.persistentId });
+			broadcastRoomList();
 		} 
 		// room already reset
 		else if (room.phase === 'LOBBY')
@@ -254,6 +284,10 @@ io.on('connection', (socket) => {
 		broadcastUpdate(room);
 	});
 
+	socket.on('getRooms', () => {
+        broadcastRoomList(socket);
+    });
+
 	socket.on('startGame', ({ roomCode }) => {
 		const room = rooms[roomCode];
 		if (!room || room.hostId !== socket.id) return;
@@ -261,6 +295,35 @@ io.on('connection', (socket) => {
 
 		startRound(room);
 	});
+
+	socket.on('exitGame', ({ roomCode, persistentId }) => {
+        const room = rooms[roomCode];
+        if (!room) return;
+
+        const playerIndex = room.players.findIndex(p => p.persistentId === persistentId);
+        if (playerIndex === -1) return;
+
+        const player = room.players[playerIndex];
+        
+        if (player.isSpectator || room.phase === 'LOBBY' || room.phase === 'GAME_OVER')
+        {
+            room.players.splice(playerIndex, 1);
+        } 
+        else
+        {
+            room.players.splice(playerIndex, 1);            
+            room.notification = `${player.username} left the game. Restarting round`;
+            room.isPaused = true;
+            setTimeout(() => {startRound(room);}, PLAYER_LEFT_TIMER);
+        }
+
+        if (room.players.length === 0)
+        {
+        	delete rooms[roomCode];
+        	broadcastRoomList();
+        }
+        else broadcastUpdate(room);
+    });
 
 	socket.on('submitBid', ({ roomCode, bid }) => {
 		const room = rooms[roomCode];
@@ -377,6 +440,7 @@ io.on('connection', (socket) => {
 
 function startRound(room)
 {
+	if(!room) return;
 	room.isPaused = false;
 	room.phase = 'BIDDING';
 	room.deck = shuffleDeck(createDeck());
@@ -426,7 +490,8 @@ function startRound(room)
 	// We keep room.startPlayerIndex as the "dealer" equivalent or first bidder
 	room.currentTurn = room.startPlayerIndex;
 	// Skip spectators if any
-	while(room.players[room.currentTurn].isSpectator) {
+	while(room.players[room.currentTurn].isSpectator)
+	{
 		room.startPlayerIndex = (room.startPlayerIndex + 1) % room.players.length;
 		room.currentTurn = room.startPlayerIndex;
 	}
