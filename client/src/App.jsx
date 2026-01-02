@@ -21,6 +21,13 @@ const EyeSlashIcon = ({ className }) => (
   </svg>
 );
 
+const FaceIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.25 4.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm6 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" clipRule="evenodd" />
+    <path d="M8.75 12.5a.75.75 0 00-1.5 0v2.5a3 3 0 006 0v-2.5a.75.75 0 00-1.5 0v2.5a1.5 1.5 0 01-3 0v-2.5z" />
+  </svg>
+);
+
 const HeartIcon = ({ className }) => (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
 		<path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
@@ -94,6 +101,8 @@ function App()
 	const prevTurnRef = useRef(null); // Previous turn reference
 	const [availableRooms, setAvailableRooms] = useState([]);
 	const [showLastHand, setShowLastHand] = useState(true);
+	const [showEmojiMenu, setShowEmojiMenu] = useState(false);
+  const [activeEmojis, setActiveEmojis] = useState({});
 
 	// Constants
 	const CARD_PATH = "/napoletane/";
@@ -102,7 +111,9 @@ function App()
 	const STORAGE_ITEM_NAME = "game_session";
 	const STORAGE_USERNAME_KEY = "game_username";
 	const ROUND_SUMMARY_TIMEOUT = 9700; // ms, timeout to show how many lives each player has lost
+	const EMOJI_TIMEOUT = 3000;
 	const MIN_NUMBER_OF_PLAYERS = 2;
+	const EMOJI_LIST = ['👍', '👎', '😂', '😭', '😡', '😎', '🤡', '😱', '🤯', '❤️', '💩'];
 
 	// Useful variables
 	const me = gameState?.players?.find(p => p.id === socket.id);
@@ -201,6 +212,18 @@ function App()
 			setTimeout(() => setRoundSummary(null), ROUND_SUMMARY_TIMEOUT);
 		});
 
+		socket.on('playerEmoji', ({ persistentId, emoji }) => {
+        setActiveEmojis(prev => ({ ...prev, [persistentId]: emoji }));
+
+        setTimeout(() => {
+            setActiveEmojis(prev => {
+                const newState = { ...prev };
+                delete newState[persistentId];
+                return newState;
+            });
+        }, EMOJI_TIMEOUT);
+    });
+
 		socket.on('error', (msg) => alert(msg));
 
 		socket.on('connect', handleConnect);
@@ -264,6 +287,11 @@ function App()
 
 	const handleHostChoice = (choice) => {
 		socket.emit('processHostDecision', { roomCode: gameState.code, choice });
+  };
+
+  const sendEmoji = (emoji) => {
+    socket.emit('sendEmoji', { roomCode: gameState.code, emoji });
+    setShowEmojiMenu(false);
   };
 
 	const submitBid = (bid) => {
@@ -494,7 +522,7 @@ function App()
 		)}
 
 		{/* Other Players (Top/Sides - Simplified as a row for mobile) */}
-		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:justify-around md:items-start md:px-10 relative z-30 pointer-events-none">
+		<div className="flex flex-wrap justify-center gap-4 mb-8 w-full md:justify-around md:items-start md:px-10 relative z-[60] pointer-events-none">
 			{orderedOpponents.map(p => (
 			<div key={p.id} className={`flex flex-col items-center p-3 rounded-xl relative transition-all ${isActionPhase && gameState.players[gameState.currentTurn].id === p.id ? 'bg-yellow-500/20 ring-2 ring-yellow-400 shadow-lg scale-105' : 'bg-green-900/40'}`}>
 					
@@ -504,6 +532,13 @@ function App()
 									{roundSummary.find(s => s.persistentId === p.persistentId).livesLost === 0 ? 'SAFE' : `-${roundSummary.find(s => s.persistentId === p.persistentId).livesLost}`}
 							</div>
 					)}
+
+					{/* --- EMOJI DISPLAY OPPONENT --- */}
+	        {activeEmojis[p.persistentId] && (
+	            <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-4xl animate-bounce drop-shadow-lg z-100 transition-all duration-300">
+	                {activeEmojis[p.persistentId]}
+	            </div>
+	        )}
 
 					{/* Avatar & Name & online status */}
 					<div className="relative mb-1">
@@ -701,96 +736,126 @@ function App()
 
 		{/* My Hand */}
 		{!me.isSpectator && (
-		<div className="mt-auto w-full flex flex-col items-center pb-2">
-		
-				{/* stats bar */}
-				<div className={`
-						relative 
-						/* negative margin */
-						-mb-10 md:-mb-16 
-					
-						z-20
+    <div className="mt-auto w-full flex flex-col items-center pb-2">
+        
+        {/* STATS & EMOJI CONTAINER */}
+        <div className={`
+            relative 
+            -mb-10 md:-mb-16 
+            z-[60]
+            flex items-center gap-2 
+            scale-90 origin-bottom
+        `}>
 
-						bg-green-900/90 backdrop-blur-md border border-green-500/30 
-						px-4 py-1 md:px-6 md:py-2 
-						rounded-full shadow-2xl flex items-center gap-4 md:gap-16
+            {/* STATS BAR */}
+            <div className="bg-green-900/90 backdrop-blur-md border border-green-500/30 px-4 py-1 md:px-6 md:py-2 rounded-full shadow-2xl flex items-center gap-4 md:gap-16 relative">
+                
+                {activeEmojis[me.persistentId] && (
+                    <div className="absolute -top-12 right-0 text-5xl animate-bounce drop-shadow-xl z-50">
+                        {activeEmojis[me.persistentId]}
+                    </div>
+                )}
 
-						scale-90 origin-bottom
-				`}>
-						
-						{/* lives lost */}
-						{roundSummary?.find(s => s.persistentId === me.persistentId) && (
-								<div className={`
-										absolute left-1/2 -top-5 -translate-x-1/2
-										px-4 py-1 rounded-full font-bold shadow-[0_0_15px_rgba(0,0,0,0.5)] animate-bounce z-50 whitespace-nowrap border-2 border-white
-										${roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 
-										? 'bg-green-500 text-white' 
-										: 'bg-red-600 text-white'}
-								`}>
-										{roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 
-										? 'SAFE' 
-										: `-${roundSummary.find(s => s.persistentId === me.persistentId).livesLost}`}
-								</div>
-						)}
+                {/* Round Summary Badge */}
+                {roundSummary?.find(s => s.persistentId === me.persistentId) && (
+                    <div className={`absolute left-1/2 -top-5 -translate-x-1/2 px-4 py-1 rounded-full font-bold shadow-[0_0_15px_rgba(0,0,0,0.5)] animate-bounce z-50 whitespace-nowrap border-2 border-white ${roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 ? 'bg-green-500 text-white' : 'bg-red-600 text-white'}`}>
+                        {roundSummary.find(s => s.persistentId === me.persistentId).livesLost === 0 ? 'SAFE' : `-${roundSummary.find(s => s.persistentId === me.persistentId).livesLost}`}
+                    </div>
+                )}
 
-						{/* Lives */}
-						<div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
-								<HeartIcon className="w-5 h-5 md:w-6 md:h-6 text-red-500 drop-shadow-[0_2px_4px_rgba(220,38,38,0.5)]" />
-								<div className="text-center md:text-left leading-none">
-										<span className="block text-[10px] text-green-200 uppercase tracking-wider font-bold">Lives</span>
-										<span className="text-lg md:text-2xl font-black text-white">{me.lives}</span>
-								</div>
-						</div>
+                {/* Lives */}
+                <div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
+                    <HeartIcon className="w-5 h-5 md:w-6 md:h-6 text-red-500 drop-shadow-[0_2px_4px_rgba(220,38,38,0.5)]" />
+                    <div className="text-center md:text-left leading-none">
+                        <span className="block text-[10px] text-green-200 uppercase tracking-wider font-bold">Lives</span>
+                        <span className="text-lg md:text-2xl font-black text-white">{me.lives}</span>
+                    </div>
+                </div>
 
-						{/* Bid */}
-						<div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
-								<TargetIcon className="w-5 h-5 md:w-6 md:h-6 text-blue-400 drop-shadow-[0_2px_4px_rgba(96,165,250,0.5)]" />
-								<div className="text-center md:text-left leading-none">
-										<span className="block text-[10px] text-green-200 uppercase tracking-wider font-bold">Bid</span>
-										<span className="text-lg md:text-2xl font-black text-white">{gameState.bids[me.persistentId] ?? '-'}</span>
-								</div>
-						</div>
+                {/* Bid */}
+                <div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
+                    <TargetIcon className="w-5 h-5 md:w-6 md:h-6 text-blue-400 drop-shadow-[0_2px_4px_rgba(96,165,250,0.5)]" />
+                    <div className="text-center md:text-left leading-none">
+                        <span className="block text-[10px] text-green-200 uppercase tracking-wider font-bold">Bid</span>
+                        <span className="text-lg md:text-2xl font-black text-white">{gameState.bids[me.persistentId] ?? '-'}</span>
+                    </div>
+                </div>
 
-						{/* Taken */}
-						<div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
-								<CardsIcon className="w-5 h-5 md:w-6 md:h-6 text-yellow-400 drop-shadow-[0_2px_4px_rgba(250,204,21,0.5)]" />
-								<div className="text-center md:text-left leading-none">
-										<span className="block text-[10px] text-green-200 uppercase tracking-wider font-bold">Taken</span>
-										<span className="text-lg md:text-2xl font-black text-white">{me.tricks}</span>
-								</div>
-						</div>
-				</div>
-				
-				{/* CARDS CONTAINER */}
-				<div className={`
-						flex justify-center -space-x-4 pb-2 overflow-x-auto w-full 
-						pt-8 md:pt-20
-						min-h-[150px] md:min-h-[250px]
-						md:-space-x-10 md:pb-6 
-						transition-all duration-500 rounded-xl px-4
-						${isMyTurn && isActionPhase ? 'bg-yellow-500/5 shadow-[0_0_40px_rgba(234,179,8,0.15)]' : 'opacity-70 grayscale-[0.5] pointer-events-none'}
-				`}>
-				{me.hand.map((card, idx) => {
-						const isPlayable = gameState.phase === 'PLAYING' && isMyTurn;
-						const isBlind = gameState.cardsPerHand === 1; 
-						const isSelected = selectedCardId === card.id;
+                {/* Taken */}
+                <div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
+                    <CardsIcon className="w-5 h-5 md:w-6 md:h-6 text-yellow-400 drop-shadow-[0_2px_4px_rgba(250,204,21,0.5)]" />
+                    <div className="text-center md:text-left leading-none">
+                        <span className="block text-[10px] text-green-200 uppercase tracking-wider font-bold">Taken</span>
+                        <span className="text-lg md:text-2xl font-black text-white">{me.tricks}</span>
+                    </div>
+                </div>
+            </div>
+            
+            {/* EMOJI BUTTON & MENU CONTAINER */}
+            <div className="relative">
+                {showEmojiMenu && (
+                    <div className="absolute bottom-full right-0 mb-2 z-[60] bg-green-900/95 backdrop-blur-md border border-yellow-500/50 p-2 rounded-xl shadow-2xl grid grid-cols-4 gap-2 w-48 animate-in fade-in zoom-in duration-200">
+                        {EMOJI_LIST.map(emoji => (
+                            <button
+                                key={emoji}
+                                onClick={() => sendEmoji(emoji)}
+                                className="text-2xl hover:bg-white/10 p-1 rounded transition-colors hover:scale-110 active:scale-95"
+                            >
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
-						return (
-								<img 
-										key={card.id || idx}
-										src={isBlind ? RETRO_PATH : getCardAsset(card.suit, card.value)}
-										onClick={() => isPlayable ? handleCardClick(card) : null}
-										className={`
-												w-20 h-auto rounded-lg shadow-2xl cursor-pointer transition-transform duration-200 border border-white/20 md:w-40 md:hover:-translate-y-10
-												${isSelected ? '-translate-y-6 border-yellow-400 ring-2 ring-yellow-400 z-10 md:-translate-y-14' : 'translate-y-0'}
-												${!isPlayable ? 'opacity-90 brightness-75' : 'hover:-translate-y-2 brightness-100'}
-										`}
-								/>
-						);
-				})}
-				</div>
-		</div>
-		)}
+                <button 
+                    onClick={() => setShowEmojiMenu(!showEmojiMenu)}
+                    className={`
+                        h-12 w-12 md:h-14 md:w-14 rounded-full 
+                        flex items-center justify-center 
+                        shadow-xl border-2 transition-all duration-200
+                        ${showEmojiMenu ? 'bg-yellow-500 border-yellow-300 text-green-900 rotate-12' : 'bg-green-800 border-green-500 text-yellow-400 hover:bg-green-700'}
+                    `}
+                >
+                    {showEmojiMenu ? (
+                        <span className="text-2xl font-bold">✕</span>
+                    ) : (
+                        <FaceIcon className="w-8 h-8 md:w-9 md:h-9" />
+                    )}
+                </button>
+            </div>
+        </div>
+
+        {/* CARDS CONTAINER */}
+        <div className={`
+            flex justify-center -space-x-4 pb-2 overflow-x-auto w-full 
+            pt-8 md:pt-20
+            min-h-[150px] md:min-h-[250px]
+            md:-space-x-10 md:pb-6 
+            transition-all duration-500 rounded-xl px-4
+            ${isMyTurn && isActionPhase ? 'bg-yellow-500/5 shadow-[0_0_40px_rgba(234,179,8,0.15)]' : 'opacity-70 grayscale-[0.5] pointer-events-none'}
+        `}>
+            {me.hand.map((card, idx) => {
+                const isPlayable = gameState.phase === 'PLAYING' && isMyTurn;
+                const isBlind = gameState.cardsPerHand === 1; 
+                const isSelected = selectedCardId === card.id;
+
+                return (
+                    <img 
+                        key={card.id || idx}
+                        src={isBlind ? RETRO_PATH : getCardAsset(card.suit, card.value)}
+                        onClick={() => isPlayable ? handleCardClick(card) : null}
+                        alt={`${card.value} of ${card.suit}`}
+                        className={`
+                            w-20 h-auto rounded-lg shadow-2xl cursor-pointer transition-transform duration-200 border border-white/20 md:w-40 md:hover:-translate-y-10
+                            ${isSelected ? '-translate-y-6 border-yellow-400 ring-2 ring-yellow-400 z-10 md:-translate-y-14' : 'translate-y-0'}
+                            ${!isPlayable ? 'opacity-90 brightness-75' : 'hover:-translate-y-2 brightness-100'}
+                        `}
+                    />
+                );
+            })}
+        </div>
+    </div> 
+    )}
 		</div>
 
 		{/* Ace of Denari Modal */}

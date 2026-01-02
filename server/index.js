@@ -289,6 +289,19 @@ io.on('connection', (socket) => {
         broadcastRoomList(socket);
     });
 
+    socket.on('sendEmoji', ({ roomCode, emoji }) => {
+        const room = rooms[roomCode];
+        if (!room) return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player) return;
+
+        io.to(roomCode).emit('playerEmoji', { 
+            persistentId: player.persistentId, 
+            emoji: emoji
+        });
+    });
+
 	socket.on('startGame', ({ roomCode }) => {
 		const room = rooms[roomCode];
 		if (!room || room.hostId !== socket.id) return;
