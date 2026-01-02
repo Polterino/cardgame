@@ -6,6 +6,21 @@ const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
 const socket = io(socketUrl);
 
 // --- ICONS COMPONENTS ---
+const EyeIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
+    <path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" />
+  </svg>
+);
+
+const EyeSlashIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113z" />
+    <path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0115.75 12zM12.53 15.713l-4.243-4.244a3.75 3.75 0 004.243 4.243z" />
+    <path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 00-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 016.75 12z" />
+  </svg>
+);
+
 const HeartIcon = ({ className }) => (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
 		<path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
@@ -78,6 +93,7 @@ function App()
 	const [roundSummary, setRoundSummary] = useState(null);
 	const prevTurnRef = useRef(null); // Previous turn reference
 	const [availableRooms, setAvailableRooms] = useState([]);
+	const [showLastHand, setShowLastHand] = useState(true);
 
 	// Constants
 	const CARD_PATH = "/napoletane/";
@@ -492,7 +508,7 @@ function App()
 					{/* Avatar & Name & online status */}
 					<div className="relative mb-1">
 						<div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border-2 border-green-600/50 flex items-center justify-center shadow-md">
-								<span className="text-lg font-bold text-gray-200">{p.username[0].toUpperCase()}</span>
+								<span className="text-lg font-bold text-gray-200">{p.username[0]?.toUpperCase()}</span>
 						</div>
 						
 						{/* Online status */}
@@ -595,43 +611,51 @@ function App()
 
 		{/* --- LAST TRICK DISPLAY --- */}
 				{gameState.lastTrick && gameState.lastTrick.cards.length > 0 && (
-						<div className="absolute bottom-40 left-2 md:bottom-10 md:left-10 z-20 flex flex-col items-start opacity-80 hover:opacity-100 transition-opacity">
-								
-								<span className="text-[10px] md:text-xs text-green-300 font-bold uppercase tracking-widest mb-1 bg-black/40 px-2 rounded">
-										Last Hand
-								</span>
+            <div className="absolute bottom-40 left-2 md:bottom-10 md:left-10 z-20 flex flex-col items-start transition-all">
+                
+                {/* Header / Toggle Button */}
+                <button 
+                    onClick={() => setShowLastHand(!showLastHand)}
+                    className="flex items-center gap-2 text-[10px] md:text-xs text-green-300 font-bold uppercase tracking-widest mb-1 bg-black/60 hover:bg-black/80 px-3 py-1.5 rounded transition-colors backdrop-blur-sm border border-white/10"
+                >
+                    <span>Last Hand</span>
+                    {showLastHand ? <EyeSlashIcon className="w-3 h-3 text-white/70" /> : <EyeIcon className="w-3 h-3 text-white/70" />}
+                </button>
 
-								<div className="flex -space-x-2 md:space-x-2 bg-black/40 p-2 rounded-xl backdrop-blur-sm border border-white/10">
-										{gameState.lastTrick.cards.map((play, idx) => {
-												const playerIndex = gameState.players.findIndex(p => p.persistentId === play.playerId);
-												if (playerIndex === -1) return null;
-												const playerName = gameState.players[playerIndex].username;
-												const isWinner = play.playerId === gameState.lastTrick.winnerId;
+                {/* Cards Container (Collapsible) */}
+                {showLastHand && (
+                    <div className="flex -space-x-2 md:space-x-2 bg-black/40 p-2 rounded-xl backdrop-blur-sm border border-white/10 animate-in fade-in slide-in-from-bottom-2 duration-300 origin-top-left">
+                        {gameState.lastTrick.cards.map((play, idx) => {
+                            const playerIndex = gameState.players.findIndex(p => p.persistentId === play.playerId);
+                            if (playerIndex === -1) return null;
+                            const playerName = gameState.players[playerIndex].username;
+                            const isWinner = play.playerId === gameState.lastTrick.winnerId;
 
-												return (
-														<div key={idx} className="flex flex-col items-center">
-																<img 
-																		src={getCardAsset(play.card?.suit, play.card?.value)} 
-																		alt="card"
-																		className={`
-																				w-10 h-auto md:w-16 rounded shadow-lg
-																				${isWinner ? 'ring-2 ring-yellow-400 scale-110 z-10' : 'opacity-80 scale-90 grayscale-[0.3]'}
-																				transition-all duration-300
-																		`}
-																/>
-																
-																<span className={`
-																		text-[8px] md:text-[10px] mt-1 max-w-[50px] truncate text-center
-																		${isWinner ? 'text-yellow-400 font-bold' : 'text-gray-400'}
-																`}>
-																		{playerName}
-																</span>
-														</div>
-												);
-										})}
-								</div>
-						</div>
-				)}
+                            return (
+                                <div key={idx} className="flex flex-col items-center">
+                                    <img 
+                                        src={getCardAsset(play.card?.suit, play.card?.value)} 
+                                        alt="card"
+                                        className={`
+                                            w-10 h-auto md:w-16 rounded shadow-lg
+                                            ${isWinner ? 'ring-2 ring-yellow-400 scale-110 z-10' : 'opacity-80 scale-90 grayscale-[0.3]'}
+                                            transition-all duration-300
+                                        `}
+                                    />
+                                    
+                                    <span className={`
+                                        text-[8px] md:text-[10px] mt-1 max-w-[50px] truncate text-center
+                                        ${isWinner ? 'text-yellow-400 font-bold' : 'text-gray-400'}
+                                    `}>
+                                        {playerName}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        )}
 
 		{/* Player Controls (Lobby) */}
 		{gameState.phase === 'LOBBY' && me.id === gameState.hostId && (

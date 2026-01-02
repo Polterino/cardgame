@@ -246,6 +246,7 @@ io.on('connection', (socket) => {
 	socket.on('returnToLobby', ({ roomCode, username }) => {
 		const room = rooms[roomCode];
 		if (!room) return;
+		if (!username) return socket.emit('error', 'Username not set');
 
 		const freshPlayer = createPlayer(socket.id, username, room.initialLives);
 
@@ -322,7 +323,11 @@ io.on('connection', (socket) => {
         	delete rooms[roomCode];
         	broadcastRoomList();
         }
-        else broadcastUpdate(room);
+        else
+        {
+        	room.hostId = room.players[0].id;
+        	broadcastUpdate(room);
+        }
     });
 
 	socket.on('submitBid', ({ roomCode, bid }) => {
