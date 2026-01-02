@@ -946,7 +946,7 @@ function App()
 
 		{/* Game Over Scoreboard */}
 		{gameState.phase === 'GAME_OVER' && (
-		<div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 overflow-auto p-4">
+		<div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-[500] overflow-auto p-4">
 			<div id="scoreboard" className="bg-green-900 border-4 border-yellow-500 p-8 rounded-xl max-w-lg w-full text-center">
 			<h2 className="text-3xl font-bold text-yellow-400 mb-6">Game Over</h2>
 
