@@ -79,7 +79,6 @@ Open a terminal, navigate to the `server` folder, and install dependencies:
 ```
 cd server
 npm install
-
 ```
 
 Start the server:
@@ -88,7 +87,6 @@ Start the server:
 
 ```
 node index.js
-
 ```
 
 _The server default port is **3001**._
@@ -102,7 +100,6 @@ Open a **new terminal window**, navigate to the `client` folder, and install dep
 ```
 cd client
 npm install
-
 ```
 
 #### Environment Variables Configuration
@@ -118,12 +115,17 @@ In order to host it both on the internet or your local network, you must specify
 ```
 VITE_SOCKET_URL=http://YOUR_LOCAL_IP_OR_DOMAIN:3001
 VITE_ALLOWED_HOST=YOUR_DOMAIN
-
 ```
 
 Example:
 
 VITE_SOCKET_URL=http://192.168.1.1:3001
+
+If you're using a webserver to redirect socket calls to localhost:3001, then VITE_SOCKET_URL should be set to
+```
+VITE_SOCKET_URL=http(s)://YOURDOMAIN
+```
+without specifying a port number.
 
 #### Start the Frontend
 
