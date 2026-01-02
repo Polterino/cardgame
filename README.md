@@ -161,6 +161,6 @@ npm install uuid@9.0.1
 ```
 If you mistakenly executed "sudo npm install" instead of "npm install":
 ```
-sudo chown -R $USER:$USER yourpath/cardgame/v2/client
-sudo rm -rf yourpath/cardgame/v2/client/node_modules/.vite
+sudo chown -R $USER:$USER yourpath/cardgame/client
+sudo rm -rf yourpath/cardgame/client/node_modules/.vite
 npm run dev
