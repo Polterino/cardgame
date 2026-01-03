@@ -94,7 +94,7 @@ function App()
 	const AVATAR_PATH = "/avatars/";
 	const BACKS_PATH = "/card_backs/";
 	const SFX_PATH = "/sfx/";
-	const AVATARS = ['1.png', '2.png', '3.png', 'hf.svg', 'hf2.png', 'gman.png'];
+	const AVATARS = ['1.png', '2.png', '3.png', 'hf.svg', 'hf2.png', 'gman.png', 'pig.png', 'huh.jpg', 'ptsd.png', 'lovecat.jpg', 'mike.png', 'waltuh.png', 'pigga.jpg', 'mmm.png'];
 	const CARD_BACKS = ['retro.jpg', 'yugioh.png', 'pokemon.png', 'gormiti.webp'];
 	const SFX_SETS = ['half_life', 'brainrot'];
 
@@ -104,7 +104,7 @@ function App()
 	const ROUND_SUMMARY_TIMEOUT = 9700; // ms, timeout to show how many lives each player has lost
 	const EMOJI_TIMEOUT = 3000;
 	const MIN_NUMBER_OF_PLAYERS = 2;
-	const EMOJI_LIST = ['👍', '👎', '😂', '😭', '😡', '😎', '🤡', '😱', '🤯', '❤️', '💩'];
+	const EMOJI_LIST = ['👍', '👎', '😂', '😭', '💀 ', '😡', '😎', '🤡', '😱', '🤯', '❤️', '💔', '🔥', '💩', '🥀', '🇮🇹', '🫡'];
 
 
 	// States
@@ -837,6 +837,20 @@ function App()
             {/* STATS BAR */}
             <div className="bg-green-900/90 backdrop-blur-md border border-green-500/30 px-4 py-1 md:px-6 md:py-2 rounded-full shadow-2xl flex items-center gap-4 md:gap-16 relative">
                 
+            		<div className="flex-shrink-0 -ml-2 md:-ml-4 mr-2 border-r border-white/10 pr-3">
+					        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border-2 border-yellow-500/50 flex items-center justify-center shadow-md overflow-hidden">
+					            {me.avatar ? (
+					                <img 
+					                    src={`${AVATAR_PATH}${me.avatar}`} 
+					                    className="w-full h-full object-cover" 
+					                    alt="my avatar" 
+					                />
+					            ) : (
+					                <span className="text-lg font-bold text-gray-200">{me.username[0]?.toUpperCase()}</span>
+					            )}
+					        </div>
+					    </div>
+
                 {activeEmojis[me.persistentId] && (
                     <div className="absolute -top-12 right-0 text-5xl animate-bounce drop-shadow-xl z-50">
                         {activeEmojis[me.persistentId]}
