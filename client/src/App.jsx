@@ -89,6 +89,24 @@ const CardsIcon = ({ className }) => (
 
 function App()
 {
+	// Constants
+	const CARD_PATH = "/napoletane/";
+	const AVATAR_PATH = "/avatars/";
+	const BACKS_PATH = "/card_backs/";
+	const SFX_PATH = "/sfx/";
+	const AVATARS = ['1.png', '2.png', '3.png'];
+	const CARD_BACKS = ['retro.jpg', 'yugioh.png'];
+	const SFX_SETS = ['half_life'];
+
+	const STORAGE_ITEM_NAME = "game_session";
+	const STORAGE_USERNAME_KEY = "game_username";
+
+	const ROUND_SUMMARY_TIMEOUT = 9700; // ms, timeout to show how many lives each player has lost
+	const EMOJI_TIMEOUT = 3000;
+	const MIN_NUMBER_OF_PLAYERS = 2;
+	const EMOJI_LIST = ['👍', '👎', '😂', '😭', '😡', '😎', '🤡', '😱', '🤯', '❤️', '💩'];
+
+
 	// States
 	const [connected, setConnected] = useState(false);
 	const [gameState, setGameState] = useState(null);
@@ -103,17 +121,11 @@ function App()
 	const [showLastHand, setShowLastHand] = useState(true);
 	const [showEmojiMenu, setShowEmojiMenu] = useState(false);
   const [activeEmojis, setActiveEmojis] = useState({});
-
-	// Constants
-	const CARD_PATH = "/napoletane/";
-	const RETRO_CARD = "retro.jpg";
-	const RETRO_PATH = CARD_PATH + RETRO_CARD;
-	const STORAGE_ITEM_NAME = "game_session";
-	const STORAGE_USERNAME_KEY = "game_username";
-	const ROUND_SUMMARY_TIMEOUT = 9700; // ms, timeout to show how many lives each player has lost
-	const EMOJI_TIMEOUT = 3000;
-	const MIN_NUMBER_OF_PLAYERS = 2;
-	const EMOJI_LIST = ['👍', '👎', '😂', '😭', '😡', '😎', '🤡', '😱', '🤯', '❤️', '💩'];
+  const [settings, setSettings] = useState({
+    avatar: localStorage.getItem('avatar') || AVATARS[0],
+    cardBack: localStorage.getItem('cardBack') || CARD_BACKS[0],
+    sfxSet: localStorage.getItem('sfxSet') || SFX_SETS[0]
+	});
 
 	// Useful variables
 	const me = gameState?.players?.find(p => p.id === socket.id);
@@ -143,10 +155,20 @@ function App()
 	};
 
 	const playTurnSound = () => {
-		const audioStr = "data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU";
-		const audio = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg"); 
-		audio.volume = 0.5;
-		audio.play().catch(e => console.log("Audio play blocked:", e));
+		playLocalSfx('yourturn.mp3');
+	};
+
+	const updateSetting = (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    localStorage.setItem(key, value);
+    if (gameState && me) {
+      socket.emit('updatePlayerSettings', {
+          roomCode: gameState.code,
+          persistentId: me.persistentId,
+          avatar: key === 'avatar' ? value : settings.avatar,
+          cardBack: key === 'cardBack' ? value : settings.cardBack
+      });
+    }
 	};
 
 	
@@ -268,13 +290,23 @@ function App()
 	const createRoom = () => {
 		if (!username) return alert('Enter username');
 		localStorage.setItem(STORAGE_USERNAME_KEY, username);
-		socket.emit('createRoom', { username, initialLives: livesInput });
+		socket.emit('createRoom', { 
+			username,
+			initialLives: livesInput,
+			avatar: settings.avatar,
+      cardBack: settings.cardBack
+    });
 	};
 
 	const joinRoom = () => {
 		if (!username || !roomCodeInput) return alert('Enter username and room code');
 		localStorage.setItem(STORAGE_USERNAME_KEY, username);
-		socket.emit('joinRoom', { roomCode: roomCodeInput.toUpperCase(), username });
+		socket.emit('joinRoom', {
+			roomCode: roomCodeInput.toUpperCase(),
+			username,
+			avatar: settings.avatar,
+      cardBack: settings.cardBack
+		});
 	};
 
 	const startGame = () => {
@@ -293,6 +325,12 @@ function App()
     socket.emit('sendEmoji', { roomCode: gameState.code, emoji });
     setShowEmojiMenu(false);
   };
+
+	const playLocalSfx = (fileName) => {
+	  const audio = new Audio(`${SFX_PATH}${settings.sfxSet}/${fileName}`);
+	  audio.volume = 0.5;
+	  audio.play().catch(e => console.log("Audio play blocked", e));
+	};
 
 	const submitBid = (bid) => {
 		socket.emit('submitBid', { roomCode: gameState.code, bid });
@@ -313,7 +351,9 @@ function App()
 		if (gameState.currentTurn !== myIndex) return;
 
 		// selection
-		if (selectedCardId !== card.id) {
+		if (selectedCardId !== card.id)
+		{
+			playLocalSfx('preselect.mp3');
 			setSelectedCardId(card.id);
 			return; 
 		}
@@ -324,6 +364,7 @@ function App()
 			return;
 		}
 
+		playLocalSfx('play.mp3');
 		socket.emit('playCard', { roomCode: gameState.code, card, mode: 'normal' });
 		setSelectedCardId(null); // reset selection
 	};
@@ -354,98 +395,140 @@ function App()
 	if (!gameState) {
 	return (
 		<div className="min-h-screen bg-green-800 flex items-center justify-center p-4 font-mono text-white">
-		<div className="bg-green-900 p-8 rounded-lg shadow-xl max-w-md w-full border border-green-700">
-			<h1 className="text-4xl mb-6 text-center font-bold text-yellow-400">Bisca</h1>
-			
-			<div className="space-y-4">
-			<input 
-				className="w-full p-2 text-black rounded bg-green-100 border border-green-500"
-				placeholder="Username" 
-				value={username} 
-				onChange={e => setUsername(e.target.value)} 
-			/>
-			
-			<div className="border-t border-green-700 my-4 pt-4">
-				<p className="mb-2 text-green-300">Create Room</p>
-				<div className="flex gap-2">
-				<input 
-					type="number" 
-					className="w-20 p-2 text-black rounded"
-					value={livesInput}
-					onChange={e => setLivesInput(e.target.value)}
-					placeholder="Lives"
-				/>
-				<button 
-					onClick={createRoom}
-					className="flex-1 bg-yellow-600 hover:bg-yellow-500 py-2 rounded font-bold text-green-900"
-				>
-					Create
-				</button>
-				</div>
-			</div>
+            <div className="flex flex-col lg:flex-row gap-6 max-w-6xl w-full items-start justify-center">
+                
+                <div className="bg-green-900 p-6 rounded-lg shadow-xl w-full lg:w-80 border border-green-700">
+                    <h2 className="text-xl mb-4 text-yellow-400 font-bold uppercase tracking-widest border-b border-green-700 pb-2">
+                        Your Look
+                    </h2>
+                    
+                    <div className="space-y-6">
+                        <div>
+                            <label className="text-[10px] text-green-300 block mb-2 uppercase">Avatar</label>
+                            <div className="flex lg:flex-wrap gap-2 overflow-x-auto lg:overflow-visible pb-2 custom-scrollbar">
+                                {AVATARS.map(img => (
+                                    <img 
+                                        key={img} 
+                                        src={`${AVATAR_PATH}${img}`} 
+                                        onClick={() => updateSetting('avatar', img)}
+                                        className={`w-12 h-12 rounded-full cursor-pointer border-2 transition-all ${settings.avatar === img ? 'border-yellow-400 scale-110 shadow-lg' : 'border-transparent opacity-40 hover:opacity-100'}`}
+                                        alt="avatar option"
+                                    />
+                                ))}
+                            </div>
+                        </div>
 
-			<div className="text-center text-green-400">- OR -</div>
+                        <div>
+                            <label className="text-[10px] text-green-300 block mb-2 uppercase">Card Back</label>
+                            <div className="flex gap-2 overflow-x-auto lg:flex-wrap pb-2 custom-scrollbar">
+                                {CARD_BACKS.map(img => (
+                                    <img 
+                                        key={img} 
+                                        src={`${BACKS_PATH}${img}`} 
+                                        onClick={() => updateSetting('cardBack', img)}
+                                        className={`w-12 h-16 rounded cursor-pointer border-2 transition-all ${settings.cardBack === img ? 'border-yellow-400 scale-105 shadow-lg' : 'border-transparent opacity-40 hover:opacity-100'}`}
+                                        alt="card back option"
+                                    />
+                                ))}
+                            </div>
+                        </div>
 
-			<div className="border-t border-green-700 pt-4">
-				<p className="mb-2 text-green-300">Join Room</p>
-				<div className="flex gap-2">
-				<input 
-					className="w-full p-2 text-black rounded uppercase"
-					placeholder="Room Code" 
-					value={roomCodeInput} 
-					onChange={e => setRoomCodeInput(e.target.value.toUpperCase())} 
-				/>
-				<button 
-					onClick={joinRoom}
-					className="bg-blue-600 hover:bg-blue-500 px-4 rounded font-bold"
-				>
-					Join
-				</button>
-				</div>
-			</div>
-			</div>
-				<div className="mt-8 w-full border-t border-green-700 pt-4">
-			    <h3 className="text-green-300 mb-2 font-bold">Active Rooms</h3>
-			    <div className="flex flex-col gap-2 max-h-60 overflow-y-auto custom-scrollbar">
-			        {availableRooms.length === 0 ? (
-			            <p className="text-green-500/50 text-sm italic">No active rooms found.</p>
-			        ) : (
-			            availableRooms.map((r) => (
-			                <div key={r.code} className="bg-green-900/50 p-3 rounded flex justify-between items-center border border-green-600/30">
-			                    <div>
-			                        <span className="font-bold text-yellow-400 mr-2">{r.code}</span>
-			                        <span className={`text-xs px-1.5 py-0.5 rounded ${r.phase === 'LOBBY' ? 'bg-blue-500/20 text-blue-200' : 'bg-red-500/20 text-red-200'}`}>
-			                            {r.phase === 'LOBBY' || r.phase === 'GAME_OVER' ? 'WAITING' : 'PLAYING'}
-			                        </span>
-			                    </div>
-			                    <div className="flex items-center gap-3">
-			                        <div className="text-xs text-green-200">
-			                            {r.playerCount} Players
-			                            {r.spectatorCount > 0 && <span className="text-gray-400 ml-1">({r.spectatorCount} spectators)</span>}
-			                        </div>
-			                        <button 
-			                            onClick={() => {
-			                                setRoomCodeInput(r.code);
-			                                if(username)
-			                                {
-			                                    socket.emit('joinRoom', { roomCode: r.code, username });
-			                                } else
-			                                {
-			                                    alert("Please enter a username first");
-			                                }
-			                            }}
-			                            className="bg-green-700 hover:bg-green-600 px-3 py-1 rounded text-xs font-bold"
-			                        >
-			                            JOIN
-			                        </button>
-			                    </div>
-			                </div>
-			            ))
-			        )}
-			    </div>
-			</div>
-		</div>
-		</div>
+                        <div>
+                            <label className="text-[10px] text-green-300 block mb-2 uppercase">Sound Effects</label>
+                            <select 
+                                value={settings.sfxSet}
+                                onChange={(e) => updateSetting('sfxSet', e.target.value)}
+                                className="w-full bg-green-800 text-white p-2 rounded text-sm border border-green-600 focus:border-yellow-400 outline-none"
+                            >
+                                {SFX_SETS.map(set => (
+                                    <option key={set} value={set}>{set.toUpperCase()}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-green-900 p-8 rounded-lg shadow-xl w-full max-w-md border border-green-700">
+                    <h1 className="text-4xl mb-6 text-center font-bold text-yellow-400 drop-shadow-md">Bisca</h1>
+                    
+                    <div className="space-y-4">
+                        <input 
+                            className="w-full p-2 text-black rounded bg-green-100 border border-green-500"
+                            placeholder="Username" 
+                            value={username} 
+                            onChange={e => setUsername(e.target.value)} 
+                        />
+                        
+                        <div className="border-t border-green-700 my-4 pt-4">
+                            <p className="mb-2 text-green-300">Create Room</p>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="number" 
+                                    className="w-20 p-2 text-black rounded"
+                                    value={livesInput}
+                                    onChange={e => setLivesInput(e.target.value)}
+                                    placeholder="Lives"
+                                />
+                                <button 
+                                    onClick={createRoom}
+                                    className="flex-1 bg-yellow-600 hover:bg-yellow-500 py-2 rounded font-bold text-green-900 transition-colors"
+                                >
+                                    Create
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="text-center text-green-400 text-xs">- OR -</div>
+
+                        <div className="border-t border-green-700 pt-4">
+                            <p className="mb-2 text-green-300">Join Room</p>
+                            <div className="flex gap-2">
+                                <input 
+                                    className="w-full p-2 text-black rounded uppercase"
+                                    placeholder="Room Code" 
+                                    value={roomCodeInput} 
+                                    onChange={e => setRoomCodeInput(e.target.value.toUpperCase())} 
+                                />
+                                <button 
+                                    onClick={joinRoom}
+                                    className="bg-blue-600 hover:bg-blue-500 px-4 rounded font-bold transition-colors"
+                                >
+                                    Join
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 border-t border-green-700 pt-4">
+                            <h3 className="text-green-300 mb-2 font-bold text-sm uppercase">Active Rooms</h3>
+                            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                                {availableRooms.length === 0 ? (
+                                    <p className="text-green-500/50 text-xs italic text-center">No active rooms found.</p>
+                                ) : (
+                                    availableRooms.map((r) => (
+                                        <div key={r.code} className="bg-green-800/50 p-2 rounded flex justify-between items-center border border-green-600/30">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-yellow-400 text-sm">{r.code}</span>
+                                                <span className="text-[9px] text-green-200 uppercase">{r.playerCount} Players</span>
+                                            </div>
+                                            <button 
+                                                onClick={() => {
+                                                    setRoomCodeInput(r.code);
+                                                    if(username) socket.emit('joinRoom', { roomCode: r.code, username, avatar: settings.avatar, cardBack: settings.cardBack });
+                                                    else alert("Enter username first");
+                                                }}
+                                                className="bg-green-700 hover:bg-green-600 px-3 py-1 rounded text-[10px] font-bold"
+                                            >
+                                                JOIN
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 	);
 	}
 
@@ -542,8 +625,12 @@ function App()
 
 					{/* Avatar & Name & online status */}
 					<div className="relative mb-1">
-						<div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border-2 border-green-600/50 flex items-center justify-center shadow-md">
-								<span className="text-lg font-bold text-gray-200">{p.username[0]?.toUpperCase()}</span>
+						<div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border-2 border-green-600/50 flex items-center justify-center shadow-md overflow-hidden">
+					    {p.avatar ? (
+					        <img src={`${AVATAR_PATH}${p.avatar}`} className="w-full h-full object-cover" alt="avatar" />
+					    ) : (
+					        <span className="text-lg font-bold text-gray-200">{p.username[0]?.toUpperCase()}</span>
+					    )}
 						</div>
 						
 						{/* Online status */}
@@ -580,7 +667,7 @@ function App()
 					<div className="mt-3 flex -space-x-8"> 
 					{p.hand.map((c, i) => {
 							const isBlindRound = gameState.cardsPerHand === 1;
-							const assetSrc = isBlindRound ? getCardAsset(c.suit, c.value) : RETRO_PATH;
+							const assetSrc = isBlindRound ? getCardAsset(c.suit, c.value) : `${BACKS_PATH}${p.cardBack}`;
 							return (
 									<img key={i} src={assetSrc} alt="card" className="w-14 h-auto shadow-md rounded border border-white/10" />
 							);
@@ -842,7 +929,7 @@ function App()
                 return (
                     <img 
                         key={card.id || idx}
-                        src={isBlind ? RETRO_PATH : getCardAsset(card.suit, card.value)}
+                        src={isBlind ? `${BACKS_PATH}${me.cardBack}` : getCardAsset(card.suit, card.value)}
                         onClick={() => isPlayable ? handleCardClick(card) : null}
                         alt={`${card.value} of ${card.suit}`}
                         className={`

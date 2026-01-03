@@ -67,7 +67,7 @@ function broadcastRoomList(targetSocket = null)
 }
 
 // --- FACTORY FUNCTIONS ---
-const createPlayer = (socketId, username, lives, persistentId = null) => {
+const createPlayer = (socketId, username, lives, persistentId = null, avatar = null, cardBack = null) => {
 	return {
 		id: socketId,
 		persistentId: persistentId || uuidv4(),
@@ -80,6 +80,10 @@ const createPlayer = (socketId, username, lives, persistentId = null) => {
 		hand: [],
 		tricks: 0,
 		participated: true,
+
+		// Player preferences
+		avatar: avatar || '1.png',
+		cardBack: cardBack || 'retro.jpg',
 		
 		// Stats
 		assoDenariCount: 0,
@@ -143,7 +147,7 @@ const getPublicState = (room, playerId) => {
 io.on('connection', (socket) => {
 	console.log('New client connected:', socket.id);
 
-	socket.on('createRoom', ({ username, initialLives }) => {
+	socket.on('createRoom', ({ username, initialLives, avatar, cardBack }) => {
 		const livesString = String(initialLives);
 		const isOnlyDigits = /^\d+$/.test(livesString);
 
@@ -159,7 +163,7 @@ io.on('connection', (socket) => {
 		}
 
 		const roomCode = uuidv4().slice(0, 6).toUpperCase();
-		const newPlayer = createPlayer(socket.id, username, initialLives);
+		const newPlayer = createPlayer(socket.id, username, initialLives, null, avatar, cardBack);
 
 		rooms[roomCode] = {
 			code: roomCode,
@@ -188,7 +192,7 @@ io.on('connection', (socket) => {
 		broadcastRoomList();
 	});
 
-	socket.on('joinRoom', ({ roomCode, username }) => {
+	socket.on('joinRoom', ({ roomCode, username, avatar, cardBack }) => {
 		const room = rooms[roomCode];
 		if (!room) return socket.emit('error', 'Room not found');
 		if (room.players.find(p => p.username === username)) return socket.emit('error', 'Username taken');
@@ -201,7 +205,7 @@ io.on('connection', (socket) => {
             lives = 0;
         }
 
-		const newPlayer = createPlayer(socket.id, username, lives);
+		const newPlayer = createPlayer(socket.id, username, lives, null, avatar, cardBack);
 		newPlayer.isSpectator = isSpectator;
 		newPlayer.participated = !isSpectator;
 		room.players.push(newPlayer);
@@ -288,6 +292,18 @@ io.on('connection', (socket) => {
 	socket.on('getRooms', () => {
         broadcastRoomList(socket);
     });
+
+    socket.on('updatePlayerSettings', ({ roomCode, persistentId, avatar, cardBack }) => {
+	    const room = rooms[roomCode];
+	    if (!room) return;
+	    const player = room.players.find(p => p.persistentId === persistentId);
+	    if (player)
+	    {
+	        if (avatar) player.avatar = avatar;
+	        if (cardBack) player.cardBack = cardBack;
+	        broadcastUpdate(room);
+	    }
+	});
 
     socket.on('sendEmoji', ({ roomCode, emoji }) => {
         const room = rooms[roomCode];
