@@ -94,9 +94,9 @@ function App()
 	const AVATAR_PATH = "/avatars/";
 	const BACKS_PATH = "/card_backs/";
 	const SFX_PATH = "/sfx/";
-	const AVATARS = ['1.png', '2.png', '3.png'];
-	const CARD_BACKS = ['retro.jpg', 'yugioh.png'];
-	const SFX_SETS = ['half_life'];
+	const AVATARS = ['1.png', '2.png', '3.png', 'hf.svg', 'hf2.png', 'gman.png'];
+	const CARD_BACKS = ['retro.jpg', 'yugioh.png', 'pokemon.png', 'gormiti.webp'];
+	const SFX_SETS = ['half_life', 'brainrot'];
 
 	const STORAGE_ITEM_NAME = "game_session";
 	const STORAGE_USERNAME_KEY = "game_username";
