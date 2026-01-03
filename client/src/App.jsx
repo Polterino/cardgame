@@ -885,7 +885,7 @@ function App()
 		)}
 
 		{gameState.phase === 'HOST_DECISION' && me.id === gameState.hostId && (
-        <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-[400] p-4 animate-in fade-in duration-300">
             <div className="bg-green-900 border-4 border-yellow-500 p-8 rounded-2xl max-w-lg w-full text-center shadow-2xl relative">
                 
                 <h2 className="text-3xl font-bold text-yellow-400 mb-2">Round Set Complete!</h2>
