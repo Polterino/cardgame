@@ -94,8 +94,8 @@ function App()
 	const AVATAR_PATH = "/avatars/";
 	const BACKS_PATH = "/card_backs/";
 	const SFX_PATH = "/sfx/";
-	const AVATARS = ['1.png', '2.png', '3.png', 'hf.svg', 'hf2.png', 'gman.png', 'pig.png', 'huh.jpg', 'ptsd.png', 'lovecat.jpg', 'mike.png', 'waltuh.png', 'pigga.jpg', 'mmm.png'];
-	const CARD_BACKS = ['retro.jpg', 'yugioh.png', 'pokemon.png', 'gormiti.webp'];
+	const AVATARS = ['1.png', '2.png', '3.png', 'hf.svg', 'hf2.png', 'gman.png', 'pig.png', 'huh.jpg', 'ptsd.png', 'lovecat.jpg', 'mike.png', 'waltuh.png', 'pigga.jpg', 'mmm.png', 'tung.webp', 'ballerina.jpg', 'bombardino.webp', 'bananini.jpg'];
+	const CARD_BACKS = ['retro.jpg', 'yugioh.png', 'pokemon.png', 'gormiti.webp', 'uno.png', 'skull.webp', 'japo_lightblue.png'];
 	const SFX_SETS = ['half_life', 'brainrot'];
 
 	const STORAGE_ITEM_NAME = "game_session";
