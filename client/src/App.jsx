@@ -21,6 +21,13 @@ const EyeSlashIcon = ({ className }) => (
   </svg>
 );
 
+const VolIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" />
+    <path d="M15.932 7.757a.75.75 0 011.061 0 4.5 4.5 0 010 6.364.75.75 0 01-1.06-1.06 3 3 0 000-4.242.75.75 0 010-1.062z" />
+  </svg>
+);
+
 const FaceIcon = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
     <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.25 4.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm6 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" clipRule="evenodd" />
@@ -87,6 +94,54 @@ const CardsIcon = ({ className }) => (
 	/>
 );
 
+
+const VolumeControl = ({ volume, onVolumeChange, playTestSound }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative inline-block" ref={containerRef}>
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className={`p-2 rounded-full transition-colors ${isOpen ? 'bg-yellow-500 text-green-900' : 'bg-green-700/50 text-yellow-400 hover:bg-green-600'}`}
+            >
+                <VolIcon className="w-5 h-5" />
+            </button>
+
+            {isOpen && (
+                <div className="absolute left-0 mt-2 p-4 bg-green-900 border border-yellow-500/50 rounded-xl shadow-2xl z-[500] w-48 animate-in fade-in zoom-in duration-150">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                            <span className="text-[10px] text-green-300 font-bold uppercase">Volume</span>
+                            <span className="text-xs text-yellow-400 font-mono">{Math.round(volume * 100)}%</span>
+                        </div>
+                        <input 
+                            type="range" 
+                            min="0" 
+                            max="1" 
+                            step="0.01"
+                            value={volume}
+                            onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+                            className="w-full h-2 bg-green-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 function App()
 {
 	// Constants
@@ -102,7 +157,7 @@ function App()
 	const STORAGE_USERNAME_KEY = "game_username";
 
 	const ROUND_SUMMARY_TIMEOUT = 9700; // ms, timeout to show how many lives each player has lost
-	const EMOJI_TIMEOUT = 3000;
+	const EMOJI_TIMEOUT = 3000; // timeout after which the sent emoji gets deleted
 	const MIN_NUMBER_OF_PLAYERS = 2;
 	const EMOJI_LIST = ['👍', '👎', '😂', '😭', '💀 ', '😡', '😎', '🤡', '😱', '🤯', '❤️', '💔', '🔥', '💩', '🥀', '🇮🇹', '🫡'];
 
@@ -124,8 +179,10 @@ function App()
   const [settings, setSettings] = useState({
     avatar: localStorage.getItem('avatar') || AVATARS[0],
     cardBack: localStorage.getItem('cardBack') || CARD_BACKS[0],
-    sfxSet: localStorage.getItem('sfxSet') || SFX_SETS[0]
+    sfxSet: localStorage.getItem('sfxSet') || SFX_SETS[0],
+    volume: parseFloat(localStorage.getItem('game_volume')) || 0.5
 	});
+	const lastSoundTime = useRef(0); // to avoid a sound playing multiple times in a short period of time
 
 	// Useful variables
 	const me = gameState?.players?.find(p => p.id === socket.id);
@@ -152,10 +209,6 @@ function App()
 	const getCardAsset = (suit, value) => {
 		if (!suit || !value) return RETRO_PATH;
 		return CARD_PATH+`${suit.toLowerCase()}_${value.toLowerCase()}.png`;
-	};
-
-	const playTurnSound = () => {
-		playLocalSfx('yourturn.mp3');
 	};
 
 	const updateSetting = (key, value) => {
@@ -278,7 +331,7 @@ function App()
 
 		if (isMyTurn && isActionPhase && prevTurnRef.current !== gameState.currentTurn)
 		{
-			playTurnSound();
+			playLocalSfx('yourturn.mp3');
 		}
 		
 		// Update reference
@@ -326,9 +379,9 @@ function App()
     setShowEmojiMenu(false);
   };
 
-	const playLocalSfx = (fileName) => {
+	const playLocalSfx = (fileName, overrideVolume = null) => {
 	  const audio = new Audio(`${SFX_PATH}${settings.sfxSet}/${fileName}`);
-	  audio.volume = 0.5;
+	  audio.volume = overrideVolume !== null ? overrideVolume : settings.volume;
 	  audio.play().catch(e => console.log("Audio play blocked", e));
 	};
 
@@ -378,6 +431,17 @@ function App()
 	const cancelAce = () => {
 		setAceModeModal(null);
 		setSelectedCardId(null);
+	};
+
+	const handleVolumeChange = (newVol) => {
+    setSettings(prev => ({ ...prev, volume: newVol }));
+    localStorage.setItem('game_volume', newVol);
+    const now = Date.now();
+    if (now - lastSoundTime.current > 400)
+    {
+      playLocalSfx('preselect.mp3', newVol);
+      lastSoundTime.current = now;
+    }
 	};
 
 	const downloadScoreboard = async () => {
@@ -444,6 +508,11 @@ function App()
                                     <option key={set} value={set}>{set.toUpperCase()}</option>
                                 ))}
                             </select>
+
+                            <VolumeControl 
+									            volume={settings.volume} 
+									            onVolumeChange={handleVolumeChange} 
+										        />
                         </div>
                     </div>
                 </div>
@@ -556,10 +625,17 @@ function App()
 		<div className="bg-green-900 h-14 px-4 flex justify-between items-center shadow-md w-full z-50 relative shrink-0">
 				
 				{/* Room Code */}
-				<div className="text-xs md:text-sm flex flex-col md:flex-row md:gap-2">
-					<span className="opacity-70">Room:</span>
-					<span className="text-yellow-400 font-bold tracking-wider">{gameState.code}</span>
-				</div>
+				<div className="flex items-center gap-4">
+					<div className="text-xs md:text-sm flex flex-col md:flex-row md:gap-2">
+						<span className="opacity-70">Room:</span>
+						<span className="text-yellow-400 font-bold tracking-wider">{gameState.code}</span>
+					</div>
+
+					<VolumeControl 
+	          volume={settings.volume} 
+	          onVolumeChange={handleVolumeChange} 
+	        />
+	      </div>
 
 				{/* Notifications and match infos */}
 				<div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center w-3/5">
