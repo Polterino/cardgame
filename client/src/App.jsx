@@ -152,6 +152,7 @@ function App()
 	const AVATARS = ['1.png', '2.png', '3.png', 'hf.svg', 'hf2.png', 'gman.png', 'pig.png', 'huh.jpg', 'ptsd.png', 'lovecat.jpg', 'mike.png', 'waltuh.png', 'pigga.jpg', 'mmm.png', 'tung.webp', 'ballerina.jpg', 'bombardino.webp', 'bananini.jpg'];
 	const CARD_BACKS = ['retro.jpg', 'yugioh.png', 'pokemon.png', 'gormiti.webp', 'uno.png', 'skull.webp', 'japo_lightblue.png'];
 	const SFX_SETS = ['half_life', 'brainrot', 'clash_royale'];
+	const sfxFiles = ['play.mp3', 'preselect.mp3', 'yourturn.mp3'];
 
 	const STORAGE_ITEM_NAME = "game_session";
 	const STORAGE_USERNAME_KEY = "game_username";
@@ -183,6 +184,7 @@ function App()
     volume: parseFloat(localStorage.getItem('game_volume')) || 0.5
 	});
 	const lastSoundTime = useRef(0); // to avoid a sound playing multiple times in a short period of time
+	const audioPool = useRef({}); // fix for iPhone users
 
 	// Useful variables
 	const me = gameState?.players?.find(p => p.id === socket.id);
@@ -224,7 +226,7 @@ function App()
     }
 	};
 
-	
+	// EFFECTS
 	// Executed only one time
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
@@ -307,7 +309,13 @@ function App()
 			handleConnect();
 		}
 
-		return () => socket.off();
+		document.addEventListener('touchstart', unlockAudio);
+		document.addEventListener('click', unlockAudio);
+		return () => {
+			socket.off();
+			document.removeEventListener('touchstart', unlockAudio);
+			document.removeEventListener('click', unlockAudio);
+		}
 	}, []);
 
 	// --- URL UPDATE ---
@@ -338,7 +346,61 @@ function App()
 		prevTurnRef.current = gameState.currentTurn;
 	}, [gameState?.currentTurn, gameState?.phase]);
 
+	// If I'm in room
+	useEffect(() => {
+    if (!gameState) return;
+
+    const keepAudioAlive = () => {
+        const silence = audioPool.current['silence.mp3'];
+        if (silence)
+        {
+            silence.volume = 0.01; // Volume quasi nullo
+            silence.play().catch(e => console.log("Keep-alive blocked", e));
+        }
+    };
+
+    const interval = setInterval(keepAudioAlive, 20000);
+    return () => clearInterval(interval);
+	}, [gameState]);
+
+	// Initialize audio files
+	useEffect(() => {
+		if (!settings.sfxSet) return;
+    const pool = {};
+
+    sfxFiles.forEach(file => {
+        const audio = new Audio(`${SFX_PATH}${settings.sfxSet}/${file}`);
+        audio.preload = 'auto';
+        audio.load();
+        pool[file] = audio;
+    });
+
+    // Keep alive audio
+    const audio = new Audio(`${SFX_PATH}silence.mp3`);
+    audio.preload = 'auto';
+    audio.load();
+    pool['silence.mp3'] = audio;
+
+    audioPool.current = pool;
+	}, [settings.sfxSet]);
+
 	// --- Actions ---
+
+	const unlockAudio = () => {
+    const silence = audioPool.current['silence.mp3'];
+    if (silence)
+    {
+        silence.play()
+            .then(() => {
+                silence.pause();
+                silence.currentTime = 0;
+                console.log("Audio Context Unlocked via Silence");
+            })
+            .catch(e => console.log("Unlock failed", e));
+    }
+    document.removeEventListener('touchstart', unlockAudio);
+    document.removeEventListener('click', unlockAudio);
+	};
 
 	const createRoom = () => {
 		if (!username) return alert('Enter username');
@@ -380,9 +442,19 @@ function App()
   };
 
 	const playLocalSfx = (fileName, overrideVolume = null) => {
-	  const audio = new Audio(`${SFX_PATH}${settings.sfxSet}/${fileName}`);
-	  audio.volume = overrideVolume !== null ? overrideVolume : settings.volume;
-	  audio.play().catch(e => console.log("Audio play blocked", e));
+		const audio = audioPool.current[fileName];
+    if (!audio) return;
+
+    audio.volume = overrideVolume !== null ? overrideVolume : settings.volume;
+	  audio.currentTime = 0;
+
+	  const playPromise = audio.play();
+    if (playPromise !== undefined)
+    {
+      playPromise.catch(e => {
+          console.log("iOS blocked auto-play:", fileName);
+      });
+    }
 	};
 
 	const submitBid = (bid) => {
