@@ -69,6 +69,24 @@ const SkullIcon = ({ className }) => (
   </svg>
 );
 
+const HelpIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    {/* Cerchio di sfondo */}
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1" fill="none" />
+    {/* Carattere ? centrato perfettamente */}
+    <text 
+      x="12" 
+      y="17" 
+      textAnchor="middle" 
+      fontSize="16" 
+      fontWeight="bold" 
+      fontFamily="Arial, sans-serif"
+    >
+      ?
+    </text>
+  </svg>
+);
+
 /*
 const CardsIcon = ({ className }) => (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -142,6 +160,73 @@ const VolumeControl = ({ volume, onVolumeChange, playTestSound }) => {
 };
 
 
+const HelpModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  const getModalCard = (suit) => `/napoletane/${suit.toLowerCase()}_4.png`;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[1000] p-4 animate-in fade-in duration-200">
+      <div className="bg-green-900 border-2 border-yellow-500 p-6 rounded-2xl max-w-md w-full shadow-2xl relative text-white font-mono">
+        <button 
+          onClick={onClose}
+          className="absolute top-3 right-3 text-green-300 hover:text-white text-2xl font-bold transition-colors"
+        >
+          &times;
+        </button>
+        
+        <h2 className="text-2xl font-bold text-yellow-400 mb-6 flex items-center gap-2 uppercase tracking-tight">
+           Card Hierarchy
+        </h2>
+
+        <div className="space-y-6">
+          
+          <div>
+            <h3 className="text-[10px] uppercase tracking-widest text-green-400 font-bold mb-3">Suits Rank (Weak to Strong)</h3>
+            <div className="flex items-center justify-between bg-black/30 p-2 py-4 rounded-xl border border-white/5 shadow-inner">
+              
+              {['Bastoni', 'Spade', 'Coppe', 'Denari'].map((suit, index, array) => (
+                <React.Fragment key={suit}>
+                  <div className={`flex flex-col items-center gap-1 ${index < 3 ? 'opacity-70' : ''}`}>
+                    <img 
+                      src={getModalCard(suit)} 
+                      alt={suit} 
+                      className={`w-10 h-auto rounded shadow-sm ${index === 3 ? 'ring-1 ring-yellow-400 scale-110' : ''}`} 
+                    />
+                    <span className={`text-[8px] mt-1 ${index === 3 ? 'text-yellow-400 font-bold' : 'text-gray-400'}`}>
+                      {suit}
+                    </span>
+                  </div>
+                  {index < array.length - 1 && (
+                    <span className="text-yellow-600 font-bold text-sm"> &lt; </span>
+                  )}
+                </React.Fragment>
+              ))}
+              
+            </div>
+          </div>
+
+          <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl">
+            <h3 className="text-xs font-bold text-yellow-200 mb-2 uppercase tracking-wide">Same Suit?</h3>
+            <p className="text-[11px] text-green-100 leading-relaxed mb-2">
+              If players play the same suit, the higher numerical value wins:
+            </p>
+            <div className="bg-black/20 p-2 rounded font-mono text-[10px] text-center text-green-300 border border-white/5">
+             Ace &lt; 2 &lt; 3 &lt; 4 &lt; 5 &lt; 6 &lt; 7 &lt; F &lt; C &lt; <span className="text-yellow-400 font-bold">R</span>
+            </div>
+          </div>
+
+          <div className="border-t border-green-700/50 pt-3 italic">
+            <p className="text-[9px] text-green-400 text-center leading-tight">
+              The <span className="text-yellow-400 font-bold underline">Ace of Denari</span> can be either played as 'High' (beats everything) or 'Low' (loses against every card).
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function App()
 {
 	// Constants
@@ -176,8 +261,8 @@ function App()
 	const [availableRooms, setAvailableRooms] = useState([]);
 	const [showLastHand, setShowLastHand] = useState(true);
 	const [showEmojiMenu, setShowEmojiMenu] = useState(false);
-  const [activeEmojis, setActiveEmojis] = useState({});
-  const [settings, setSettings] = useState({
+	const [activeEmojis, setActiveEmojis] = useState({});
+	const [settings, setSettings] = useState({
     avatar: localStorage.getItem('avatar') || AVATARS[0],
     cardBack: localStorage.getItem('cardBack') || CARD_BACKS[0],
     sfxSet: localStorage.getItem('sfxSet') || SFX_SETS[0],
@@ -185,6 +270,7 @@ function App()
 	});
 	const lastSoundTime = useRef(0); // to avoid a sound playing multiple times in a short period of time
 	const audioPool = useRef({}); // fix for iPhone users
+	const [showHelpModal, setShowHelpModal] = useState(false);
 
 	// Useful variables
 	const me = gameState?.players?.find(p => p.id === socket.id);
@@ -589,7 +675,16 @@ function App()
                     </div>
                 </div>
 
-                <div className="bg-green-900 p-8 rounded-lg shadow-xl w-full max-w-md border border-green-700">
+                <div className="bg-green-900 p-8 rounded-lg shadow-xl w-full max-w-md border border-green-700 relative">
+
+					<button 
+				        onClick={() => setShowHelpModal(true)}
+				        className="absolute top-4 right-4 text-green-500 hover:text-yellow-400 transition-all hover:scale-110 active:scale-90"
+				        title="Rules"
+				    >
+				        <HelpIcon className="w-6 h-6" />
+				    </button>
+
                     <h1 className="text-4xl mb-6 text-center font-bold text-yellow-400 drop-shadow-md">Bisca</h1>
                     
                     <div className="space-y-4">
@@ -669,6 +764,10 @@ function App()
                     </div>
                 </div>
             </div>
+
+            <HelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
+
+
         </div>
 	);
 	}
@@ -1286,6 +1385,19 @@ function App()
 			</div>
 		</div>
 		)}
+
+
+		<div className="fixed bottom-4 right-4 z-[70]">
+	        <button 
+	            onClick={() => setShowHelpModal(true)}
+	            className="bg-green-900/80 backdrop-blur-md text-yellow-400 p-3 rounded-full border border-yellow-500/50 shadow-2xl hover:scale-110 active:scale-95 transition-all">
+	            <HelpIcon className="w-7 h-7" />
+	        </button>
+	    </div>
+
+    	<HelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
+
+
 	</div>
 	);
 }
