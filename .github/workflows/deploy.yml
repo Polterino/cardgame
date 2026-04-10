@@ -1,0 +1,102 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_SERVER: ghcr.io/${{ github.repository_owner }}/bisca-server
+  IMAGE_CLIENT: ghcr.io/${{ github.repository_owner }}/bisca-client
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push server image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          push: true
+          tags: ${{ env.IMAGE_SERVER }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push client image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          push: true
+          tags: ${{ env.IMAGE_CLIENT }}:latest
+          build-args: |
+            VITE_SOCKET_URL=${{ secrets.VITE_SOCKET_URL }}
+            VITE_ALLOWED_HOST=${{ secrets.VITE_ALLOWED_HOST }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy on VPS via SSH
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose.yml to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "docker-compose.yml"
+          target: "~/bisca"
+
+      - name: SSH into VPS and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            cd ~/bisca
+
+            # Log in to GHCR so Docker can pull the private images
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Override image references so compose uses the pre-built ones from GHCR
+            export IMAGE_SERVER=${{ env.IMAGE_SERVER }}:latest
+            export IMAGE_CLIENT=${{ env.IMAGE_CLIENT }}:latest
+
+            # Write the .env file with production values
+            cat > .env <<EOF
+            VITE_SOCKET_URL=${{ secrets.VITE_SOCKET_URL }}
+            VITE_ALLOWED_HOST=${{ secrets.VITE_ALLOWED_HOST }}
+            EOF
+
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            # Clean up old dangling images
+            docker image prune -f

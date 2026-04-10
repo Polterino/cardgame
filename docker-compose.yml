@@ -1,0 +1,29 @@
+services:
+  server:
+    build:
+      context: ./server
+    container_name: bisca-server
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    networks:
+      - cardgame-net
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL}
+        VITE_ALLOWED_HOST: ${VITE_ALLOWED_HOST}
+    container_name: bisca-client
+    restart: unless-stopped
+    ports:
+      - "4173:4173"
+    depends_on:
+      - server
+    networks:
+      - cardgame-net
+
+networks:
+  cardgame-net:
+    driver: bridge
