@@ -10,7 +10,7 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, {
 	cors: {
-		origin: "*", // Allow all origins for simplicity
+		origin: process.env.VITE_ALLOWED_HOST || "*", // Allow all origins for simplicity
 		methods: ["GET", "POST"]
 	}
 });

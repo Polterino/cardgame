@@ -2,6 +2,8 @@ services:
   server:
     build:
       context: ./server
+    environment:
+      - VITE_ALLOWED_HOST=${VITE_ALLOWED_HOST}
     container_name: bisca-server
     restart: unless-stopped
     ports:
